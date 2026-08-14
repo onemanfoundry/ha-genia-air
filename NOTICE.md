@@ -35,15 +35,15 @@ honour these attributions and license terms when redistributing this work.**
   documentation. Lukas also sells the recommended eBUS hardware adapter; the
   integration's setup flow links to his store as the recommended source.
 
-## genia-air-pack (predecessor)
+## genia-air-pack (predecessor, deprecated)
 
 - Author: Sergio Campos García
-- Repository: https://github.com/hirofairlane/genia-air-pack
+- Repository: https://github.com/hirofairlane/ha-vaillant-genia-air-pack
 - License: MIT (code), LGPL-3.0+ (CSVs)
-- Usage: This integration is the successor of `genia-air-pack`. The same
-  author owns both. The pack's YAML-based approach is preserved as a fallback
-  installation path. The integration's English entity naming convention is
-  inherited from the pack to keep cross-project continuity.
+- Usage: This add-on is the successor of `genia-air-pack`. The same author
+  owns both; `genia-air-pack` is being retired in favour of this app. Its
+  English entity naming convention is inherited to keep cross-project
+  continuity for anyone migrating.
 
 ---
 

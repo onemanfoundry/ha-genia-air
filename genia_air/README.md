@@ -46,7 +46,7 @@ network or USB. Most users have a network-attached
 adapter that exposes the bus on a TCP port (default `9999`).
 
 1. In Home Assistant: **Settings → Add-ons → Add-on Store → ⋯ → Repositories**
-   and add `https://github.com/hirofairlane/genia-air-ha`.
+   and add `https://github.com/onemanfoundry/genia-air-ha`.
 2. Install **Vaillant Genia Air**.
 3. Set `ebus_device` in the configuration tab to **your** adapter (the
    `192.168.1.100` default is only a placeholder — replace it with your
