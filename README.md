@@ -1,7 +1,7 @@
 # Vaillant Genia Air — Home Assistant add-on
 
 [![CI](https://github.com/onemanfoundry/genia-air-ha/actions/workflows/ci.yaml/badge.svg)](https://github.com/onemanfoundry/genia-air-ha/actions/workflows/ci.yaml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
 
 Standalone Home Assistant add-on to **control and optimize** a Vaillant
 Genia Air (aroTHERM-class) heat pump over eBUS.
@@ -30,13 +30,41 @@ Full user docs: [`genia_air/README.md`](genia_air/README.md).
 
 ## What you get
 
-- Live KPI dashboard (ΔT, COP, modulation, electric/thermal power, flow
-  temps, runtime hours) with a zone-1 thermostat.
+- Live KPI dashboard with a zone-1 thermostat:
+  - **COP (instantaneous)** = thermal output power ÷ electrical input power,
+    read straight off the HMU's own power registers. Falls back to a
+    **30-minute rolling COP** (Σ thermal ÷ Σ electric) when the compressor is
+    currently idle but ran recently, so the card doesn't just go blank.
+  - **ΔT** = supply − return water temperature — the fastest hydraulic
+    health signal; sign flips tell heating from cooling.
+  - Modulation %, electric/thermal power, flow temps, runtime hours.
 - Local SQLite history with charts (6 h / 24 h / 72 h / 7 days).
 - A deterministic optimizer: weather-compensated flow-temp curve, seasonal
   heat↔cool switchover, safety clamps and ΔT-anomaly alerts.
 - MQTT Discovery device so your automations can hook in.
 - Diagnostics tab listing every eBUS message and a force-read trigger.
+
+## Credits
+
+This add-on bundles [`ebusd`](https://github.com/john30/ebusd) and the
+Vaillant eBUS message definitions from
+[`ebusd-configuration`](https://github.com/john30/ebusd-configuration) — both
+the multi-year work of **John Baier ([@john30](https://github.com/john30))**.
+None of this exists without his reverse-engineering and maintenance of the
+eBUS protocol. If this add-on is useful to you, consider supporting the
+upstream project directly. Full attribution and license details in
+[`NOTICE.md`](NOTICE.md).
+
+## Pairs with AI Energy Optimizer
+
+This add-on is the *hands* — it reads live heat-pump telemetry (COP, ΔT,
+flow temps) and exposes writable `number.*` / `climate.*` entities via MQTT
+Discovery. [**ha-energy-optimizer**](https://github.com/onemanfoundry/ha-energy-optimizer)
+is the *brain* — it can use the instantaneous COP and outdoor temperature to
+decide *when* to heat, since blindly heating at the cheapest valley-tariff
+hours can cost more per useful kWh than heating at midday with a higher COP.
+Install this add-on first if your heat pump talks eBUS; the Optimizer's
+wizard will then auto-discover the entities it publishes.
 
 ## Supported architectures
 
@@ -61,4 +89,4 @@ and issue reports welcome.
 
 ## License
 
-[MIT](LICENSE).
+[Apache-2.0](LICENSE).

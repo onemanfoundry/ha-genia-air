@@ -9,31 +9,27 @@ honour these attributions and license terms when redistributing this work.**
 - Author: **John Baier** (@john30)
 - Repository: https://github.com/john30/ebusd
 - License: **GPL-3.0-only**
-- Usage: We **do not embed** any `ebusd` source code. We require the user to
-  install the `ebusd` daemon separately (via the LukasGrebe Home Assistant
-  add-on) and we interoperate with it via its public MQTT interface.
-  This is interoperability, not derivative work.
+- Usage: We **embed the official pre-built `.deb` binary**, downloaded
+  unmodified from the upstream GitHub Releases page at image build time (see
+  `Dockerfile`, `EBUSD_VERSION`) and installed into the add-on's Docker
+  image. We do not modify or redistribute `ebusd` source. Source for the
+  exact bundled version is publicly available at the repository above under
+  the matching release tag — this satisfies GPL-3.0's source-availability
+  requirement via upstream's own public distribution; we do not host a
+  separate source mirror.
 
 ## eBUS configuration (Vaillant CSVs)
 
 - Authors: John Baier and contributors to https://github.com/john30/ebusd-configuration
 - License: **LGPL-3.0+**
-- Usage: Files in `custom_components/genia_air/ebusd_csv/` are derivative work
-  of the upstream `ebusd-configuration` repository, specifically the Vaillant
-  subset. They retain the **LGPL-3.0+** license — see
-  `custom_components/genia_air/ebusd_csv/LICENSE`.
-- Upstream commit reference: tracked in
-  `custom_components/genia_air/ebusd_csv/UPSTREAM_REF.md`
-
-## Home Assistant ebusd Add-on
-
-- Author: **Lukas Grebe** (@LukasGrebe)
-- Repository: https://github.com/LukasGrebe/ha-addons
-- License: Apache-2.0
-- Usage: We **require** users to have this add-on installed. We do not embed
-  any of its code. We provide configuration recommendations for it in our
-  documentation. Lukas also sells the recommended eBUS hardware adapter; the
-  integration's setup flow links to his store as the recommended source.
+- Usage: Files in `genia_air/rootfs/usr/share/ebusd/vaillant/` are derivative
+  work of the upstream `ebusd-configuration` repository, specifically the
+  Vaillant subset, and retain the **LGPL-3.0+** license.
+- ⚠️ **Compliance gap, needs fixing**: unlike the pre-"great move" layout,
+  this directory currently ships **without** an accompanying `LICENSE` file
+  or an `UPSTREAM_REF.md` pinning the source commit — both existed at the
+  old `custom_components/genia_air/ebusd_csv/` path and were never carried
+  over to the add-on rewrite. Add both back here before the next release.
 
 ## genia-air-pack (predecessor, deprecated)
 
@@ -51,15 +47,20 @@ honour these attributions and license terms when redistributing this work.**
 
 | Path | License |
 |---|---|
-| `custom_components/genia_air/*.py` | Apache-2.0 |
-| `custom_components/genia_air/ebusd_csv/*.csv` | **LGPL-3.0+** (NOT Apache) |
-| `scripts/*.py` | Apache-2.0 |
+| `genia_air/rootfs/usr/bin/*.py` | Apache-2.0 (this repo's [`LICENSE`](LICENSE)) |
+| `genia_air/rootfs/usr/share/ebusd/vaillant/*.csv` | **LGPL-3.0+** (NOT Apache) |
+| `ebusd` binary (embedded in the Docker image) | **GPL-3.0-only** (not modified, see above) |
+| `scripts/*.py`, `tests/` | Apache-2.0 |
 | `docs/`, `README.md`, `MIGRATION.md`, `ARCHITECTURE.md` | Apache-2.0 |
-| `tests/` | Apache-2.0 |
+| `_reference/` (archived HACS integration, not distributed) | Apache-2.0 — historical only, does not apply to the add-on image |
 
 If you redistribute this work:
 1. Keep this `NOTICE.md` intact
-2. Keep `custom_components/genia_air/ebusd_csv/LICENSE` intact
+2. Ship a `LICENSE` file alongside the CSVs in
+   `genia_air/rootfs/usr/share/ebusd/vaillant/` (currently missing — see the
+   compliance gap noted above)
 3. Honour the LGPL-3.0+ terms for the CSV files (in particular, if you modify
    them, you must release the modifications under the same license and
    credit the upstream authors)
+4. Honour GPL-3.0 for the embedded `ebusd` binary — don't strip or obscure
+   its origin; point recipients at the upstream release for source
