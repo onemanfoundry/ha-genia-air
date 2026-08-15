@@ -1,0 +1,10 @@
+The CSV files in this directory are derivative work of the
+`github.com/john30/ebusd-configuration` project and are distributed
+under the terms of the GNU Lesser General Public License version 3
+or (at your option) any later version (LGPL-3.0-or-later).
+
+Full LGPL-3.0 text: https://www.gnu.org/licenses/lgpl-3.0.html
+
+Original source: https://github.com/john30/ebusd-configuration
+
+Modifications from upstream are described in UPSTREAM_REF.md alongside this file.

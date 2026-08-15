@@ -192,5 +192,5 @@
 NOTE: This repository bundles eBUS configuration CSV files derived from
 `john30/ebusd-configuration`, which are licensed under LGPL-3.0+. Those files
 retain their original license — see
-`genia_air/rootfs/usr/share/ebusd/vaillant/LICENSE` (to be added — see
-NOTICE.md) and `NOTICE.md` for the full attribution chain.
+`genia_air/rootfs/usr/share/ebusd/vaillant/LICENSE` and `NOTICE.md` for the
+full attribution chain.

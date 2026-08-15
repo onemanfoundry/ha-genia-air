@@ -25,11 +25,12 @@ honour these attributions and license terms when redistributing this work.**
 - Usage: Files in `genia_air/rootfs/usr/share/ebusd/vaillant/` are derivative
   work of the upstream `ebusd-configuration` repository, specifically the
   Vaillant subset, and retain the **LGPL-3.0+** license.
-- ⚠️ **Compliance gap, needs fixing**: unlike the pre-"great move" layout,
-  this directory currently ships **without** an accompanying `LICENSE` file
-  or an `UPSTREAM_REF.md` pinning the source commit — both existed at the
-  old `custom_components/genia_air/ebusd_csv/` path and were never carried
-  over to the add-on rewrite. Add both back here before the next release.
+- `LICENSE` and `UPSTREAM_REF.md` ship alongside the CSVs at
+  `genia_air/rootfs/usr/share/ebusd/vaillant/`, pinning the exact upstream
+  snapshot (extracted from `john30/ebusd:v23.1`, 2026-05-03, `76.vwz.csv`
+  includes upstream PR #330). The same snapshot is also distributed by the
+  sibling (deprecated) `ha-vaillant-genia-air-pack` project — see its
+  `share/vaillant/` for the original packaging.
 
 ## genia-air-pack (predecessor, deprecated)
 
