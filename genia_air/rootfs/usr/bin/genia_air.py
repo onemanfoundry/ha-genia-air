@@ -34,7 +34,7 @@ from flask import Flask, abort, jsonify, request
 # Config & logging
 # ───────────────────────────────────────────────────────────────────────────
 
-VERSION = "0.3.0"
+VERSION = "0.4.0"
 
 
 def _load_options() -> dict:
@@ -441,6 +441,121 @@ def ebusd_stop() -> None:
             log.warning("ebusd did not exit on SIGTERM, sending SIGKILL")
             EBUSD_PROCESS.kill()
         EBUSD_PROCESS = None
+
+
+# ───────────────────────────────────────────────────────────────────────────
+# Compatibility check — identify the connected hardware via ebusd's TCP
+# command interface (port 8888, same protocol `ebusctl`/telnet use) and
+# compare against the single unit this add-on has actually been tested on.
+# ───────────────────────────────────────────────────────────────────────────
+
+EBUSD_TCP_HOST = "127.0.0.1"
+EBUSD_TCP_PORT = 8888
+
+# The exact (and only) hardware this add-on has been validated against,
+# taken verbatim from the header comments of the bundled CSVs in
+# rootfs/usr/share/ebusd/vaillant/. Anything else *may* work — the aroTHERM
+# family shares much of its eBUS schema — but is unverified.
+KNOWN_GOOD_DEVICES = {
+    "HMU00": {"manufacturer": "Vaillant", "sw_version": "0901", "hw_version": "5103",
+              "circuit": "hmu", "role": "Heat Management Unit (outdoor unit ECU)"},
+    "CTLS2": {"manufacturer": "Vaillant", "sw_version": "0509", "hw_version": "1304",
+              "circuit": "ctls2", "role": "Sigma 2 room controller"},
+    "VWZ":   {"manufacturer": "Vaillant", "sw_version": "0522", "hw_version": "5103",
+              "circuit": "vwz", "role": "Compressor module (VWZ)"},
+}
+
+
+def _ebusd_tcp_command(cmd: str, timeout: float = 8.0, idle: float = 1.0) -> str:
+    """Send one line to ebusd's TCP command interface and return the text
+    response. Best-effort: returns "" on any connection/timeout error rather
+    than raising, since this only backs an optional diagnostics feature.
+    """
+    import socket as _s
+    sock = _s.socket(_s.AF_INET, _s.SOCK_STREAM)
+    sock.settimeout(timeout)
+    chunks: list[bytes] = []
+    try:
+        sock.connect((EBUSD_TCP_HOST, EBUSD_TCP_PORT))
+        sock.sendall((cmd.strip() + "\n").encode("utf-8"))
+        sock.settimeout(idle)
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            try:
+                data = sock.recv(4096)
+            except _s.timeout:
+                break
+            if not data:
+                break
+            chunks.append(data)
+    except OSError as exc:
+        log.warning("ebusd TCP command %r failed: %s", cmd, exc)
+    finally:
+        sock.close()
+    return b"".join(chunks).decode("utf-8", errors="replace")
+
+
+def _parse_scan_result(text: str) -> list[dict]:
+    """Parse `scan result` output into device dicts.
+
+    Line format (per ebusd's own TCP-client docs), e.g.:
+      08;Vaillant;EHP00;0327;7201;21;07;45;0010002779;0006;......;N8
+      address;manufacturer;id;sw;hw;<extra columns we don't need>
+    """
+    devices = []
+    for line in text.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        parts = line.split(";")
+        if len(parts) < 5 or not re.match(r"^[0-9a-fA-F]{2}$", parts[0]):
+            continue
+        devices.append({
+            "address": parts[0],
+            "manufacturer": parts[1],
+            "id": parts[2],
+            "sw_version": parts[3],
+            "hw_version": parts[4],
+        })
+    return devices
+
+
+def _message_schema_snapshot() -> list[dict]:
+    """Field NAMES only (never live values) per (circuit, message) currently
+    seen — the shape a new device-support CSV would need to match, without
+    revealing anything about the household it was captured in."""
+    with STATE_LOCK:
+        return [
+            {"circuit": circuit, "message": msg, "fields": sorted(entry["fields"].keys())}
+            for (circuit, msg), entry in sorted(STATE.items())
+        ]
+
+
+def compat_check() -> dict:
+    """Compare whatever ebusd has scanned on the bus against KNOWN_GOOD_DEVICES.
+
+    Three buckets:
+      matched             — id + sw + hw match the tested unit exactly
+      mismatched_firmware — same product id, different sw/hw (probably fine,
+                             unverified)
+      unknown_device      — id we've never tested against at all
+    """
+    devices = _parse_scan_result(_ebusd_tcp_command("scan result"))
+    matched, mismatched, unknown = [], [], []
+    for dev in devices:
+        ref = KNOWN_GOOD_DEVICES.get(dev["id"].upper())
+        if ref is None:
+            unknown.append(dev)
+        elif dev["sw_version"] == ref["sw_version"] and dev["hw_version"] == ref["hw_version"]:
+            matched.append(dev)
+        else:
+            mismatched.append(dev)
+    return {
+        "devices": devices,
+        "matched": matched,
+        "mismatched_firmware": mismatched,
+        "unknown_device": unknown,
+    }
 
 
 def _install_signal_handlers() -> None:
@@ -1138,6 +1253,50 @@ def api_force_read():
     return jsonify({"ok": True})
 
 
+@app.route("/api/ebusd_scan", methods=["POST"])
+def api_ebusd_scan():
+    """Trigger a fresh full bus scan in the background (can take a while)."""
+    threading.Thread(
+        target=lambda: _ebusd_tcp_command("scan full", timeout=90, idle=5),
+        daemon=True,
+    ).start()
+    db_log_decision("user_scan", "Full eBUS scan requested", {})
+    return jsonify({"ok": True})
+
+
+@app.route("/api/compat_report")
+def api_compat_report():
+    """Anonymous compatibility report: protocol-level device identification
+    and message/field NAMES only — no live sensor values, no network
+    addresses, no credentials. Safe to attach to a public GitHub issue."""
+    compat = compat_check()
+    report = {
+        "generated_at": datetime.utcnow().isoformat() + "Z",
+        "addon_version": VERSION,
+        "tested_reference_hardware": KNOWN_GOOD_DEVICES,
+        "detected_devices": compat["devices"],
+        "compatibility": {
+            "matched": compat["matched"],
+            "mismatched_firmware": compat["mismatched_firmware"],
+            "unknown_device": compat["unknown_device"],
+        },
+        "message_schema": _message_schema_snapshot(),
+        "note": (
+            "Contains only eBUS protocol identifiers (bus address, "
+            "manufacturer, product/firmware IDs) and message/field NAMES — "
+            "no sensor readings, IPs or credentials. Safe to attach to a "
+            "public GitHub issue: "
+            "https://github.com/onemanfoundry/ha-genia-air/issues/new?"
+            "template=device-support.yml"
+        ),
+    }
+    resp = jsonify(report)
+    resp.headers["Content-Disposition"] = (
+        f'attachment; filename="genia_air_compat_report_{int(time.time())}.json"'
+    )
+    return resp
+
+
 @app.route("/api/config")
 def api_config():
     out = dict(CONF)
@@ -1326,10 +1485,14 @@ input:checked+.tslide:before{transform:translateX(20px);background:#0f172a}
 
 <!-- Diagnostics -->
 <div id="t-diag" class="tab-content">
+  <div id="compat-card" class="card" style="margin-bottom:1rem"></div>
   <div id="ebusd-card" class="card" style="margin-bottom:1rem;display:flex;align-items:center;gap:1rem;flex-wrap:wrap"></div>
   <div class="actions">
     <button class="btn btn-sm" onclick="forceRead()">📡 Force-read all</button>
     <button class="btn btn-sm btn-y" onclick="ebusdAction('restart')">🔁 Restart ebusd</button>
+    <button class="btn btn-sm" onclick="rescanBus()">🔍 Re-scan bus</button>
+    <button class="btn btn-sm btn-g" onclick="reportToGithub()">🐙 Report on GitHub</button>
+    <a class="btn btn-sm btn-p" id="compat-dl" href="#" target="_blank" style="text-decoration:none;display:inline-block">⬇ Download JSON</a>
     <button class="btn btn-sm" onclick="loadDiag()">🔄 Refresh</button>
   </div>
   <div class="card" style="overflow-x:auto">
@@ -1585,7 +1748,65 @@ async function loadCharts(){
 }
 
 // Diagnostics
+function renderCompatCard(devices, compat){
+  const el = $("compat-card");
+  $("compat-dl").href = BASE+"/api/compat_report";
+  if(!devices.length){
+    el.innerHTML = `<h2 style="margin-top:0">Hardware compatibility</h2>`+
+      `<div class="sub">No bus scan result yet — try "Re-scan bus" below, or wait for boot to finish.</div>`;
+    return;
+  }
+  const badgeFor = id => compat.matched.some(d=>d.id===id) ? '<span class="badge bg-g">tested ✓</span>'
+    : compat.mismatched_firmware.some(d=>d.id===id) ? '<span class="badge bg-y">different firmware</span>'
+    : '<span class="badge bg-r">untested model</span>';
+  const rows = devices.map(d =>
+    `<div class="thermo-line">addr ${d.address} · ${d.manufacturer} <span style="color:var(--t)">${d.id}</span> SW${d.sw_version} HW${d.hw_version} ${badgeFor(d.id)}</div>`
+  ).join("");
+  const anyIssue = compat.mismatched_firmware.length || compat.unknown_device.length;
+  el.innerHTML = `<h2 style="margin-top:0">Hardware compatibility</h2>${rows}` +
+    `<div class="sub" style="margin-top:.5rem">${anyIssue
+      ? '⚠ Tested only against Vaillant HMU00 SW0901/HW5103 + CTLS2 SW0509/HW1304 + VWZ SW0522/HW5103. Yours differs — it may still work, but if something looks wrong, hit "Report on GitHub" below to help us support it.'
+      : '✓ Matches the exact hardware this add-on has been tested on.'}</div>`;
+}
+let LAST_COMPAT_REPORT = null;
+async function loadCompat(){
+  try{
+    const r = await api("/api/compat_report");
+    LAST_COMPAT_REPORT = r;
+    renderCompatCard(r.detected_devices, r.compatibility);
+  } catch(e){ /* non-fatal — diagnostics still works without it */ }
+}
+async function rescanBus(){
+  try{ await api("/api/ebusd_scan", {method:"POST"});
+       toast("Full bus re-scan requested — this can take a minute","info");
+       setTimeout(loadDiag, 20000);
+  } catch(e){ toast("Error: "+e.message,"err"); }
+}
+function compatTitle(r){
+  const c = r.compatibility;
+  if (c.unknown_device.length) return "Device support: "+c.unknown_device.map(d=>d.id).join(", ");
+  if (c.mismatched_firmware.length) return "Firmware mismatch: "+c.mismatched_firmware.map(d=>d.id+" SW"+d.sw_version+"/HW"+d.hw_version).join(", ");
+  return "Compatibility report";
+}
+async function reportToGithub(){
+  try{
+    const r = LAST_COMPAT_REPORT || await api("/api/compat_report");
+    const base = "https://github.com/onemanfoundry/ha-genia-air/issues/new";
+    const params = new URLSearchParams({ template: "device-support.yml", title: compatTitle(r) });
+    const withReport = new URLSearchParams(params);
+    withReport.set("compat-report", JSON.stringify(r));
+    // GitHub/browsers get unreliable well before any official URL-length
+    // limit — stay under a safe margin, else open without the pre-filled
+    // field and ask the user to attach the downloaded JSON instead.
+    const full = base+"?"+withReport.toString();
+    const usedFull = full.length < 7500;
+    window.open(usedFull ? full : base+"?"+params.toString(), "_blank");
+    toast(usedFull ? "Opening a pre-filled GitHub issue…"
+                    : "Report is large — attach the downloaded JSON on the issue page", "info");
+  } catch(e){ toast("Error: "+e.message,"err"); }
+}
 async function loadDiag(){
+  loadCompat();
   try{
     const [msgs, h] = await Promise.all([api("/api/messages"), api("/api/health")]);
     // ebusd status card

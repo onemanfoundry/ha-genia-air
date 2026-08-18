@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.4.0 — 2026-08-18
+
+- **Hardware compatibility check.** Diagnostics now shows every device
+  ebusd sees on the bus against the exact unit this add-on is tested on
+  (Vaillant `HMU00` SW=0901/HW=5103, `CTLS2` SW=0509/HW=1304, `VWZ`
+  SW=0522/HW=5103), flagging firmware mismatches and untested product IDs
+  instead of failing silently.
+- **Anonymous compatibility report.** New **⬇ Download JSON** button saves
+  a report with device identification and message/field *names* only —
+  never live readings, network addresses or credentials.
+- **One-click GitHub report.** New **🐙 Report on GitHub** button opens a
+  pre-filled `device-support` issue with the compatibility report already
+  in the form (falls back to "attach the file" for reports too large for a
+  URL) — no copy-paste, no account/write access needed from the add-on
+  itself.
+- New **"🔍 Re-scan bus"** action triggers a fresh `scan full` on ebusd on
+  demand.
+- New endpoints: `GET /api/compat_report`, `POST /api/ebusd_scan`.
+
 ## 0.3.0 — 2026-06-22
 
 First community release. Repository polish + add-on store hygiene:

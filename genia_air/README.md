@@ -72,6 +72,41 @@ adapter that exposes the bus on a TCP port (default `9999`).
 | `optimize_cycle_minutes` | `5` | How often the optimizer evaluates |
 | `ebusd_log_level` | `notice` | `error`, `notice`, `info`, `debug` |
 
+## Compatibility
+
+This add-on has been **tested against exactly one unit**, identified as
+follows on the eBUS (address · manufacturer · product ID · firmware):
+
+| Address | Device | Manufacturer | ID | SW version | HW version |
+|---|---|---|---|---|---|
+| `08` | Heat Management Unit | Vaillant | `HMU00` | `0901` | `5103` |
+| `15` | Sigma 2 room controller | Vaillant | `CTLS2` | `0509` | `1304` |
+| `76` | Compressor module | Vaillant | `VWZ`   | `0522` | `5103` |
+
+Other Genia Air / aroTHERM units, other firmware revisions, or other Vaillant
+controllers **may work** — the eBUS schema is shared across much of the
+range — but nothing outside the table above has been verified.
+
+**The Diagnostics tab tells you where you stand.** It scans the bus via
+ebusd and shows each detected device against the table above:
+tested ✓ (exact match), different firmware (same product, unverified
+version), or untested model (a product ID we've never seen). If you're not
+an exact match, things may well still work — the add-on won't stop you —
+but if entities look wrong or messages fail to parse, that's the first
+thing to check.
+
+**Help us support your unit.** Click **🐙 Report on GitHub** in Diagnostics —
+it opens a pre-filled *device support* issue on GitHub with the
+compatibility report already pasted into the form; you just need to add a
+line about what's actually going wrong and hit submit. (If the report is
+too large for a URL, the button opens the issue anyway and you attach the
+**⬇ Download JSON** file instead.) The report is built to be safe to post
+publicly: it contains only eBUS protocol identifiers (bus address,
+manufacturer, product/firmware IDs) and message/field **names** — never
+live sensor readings, your network address, or any credentials. No account
+or personal information is collected beyond whatever you choose to put in
+the GitHub issue itself, and beyond signing in to GitHub to submit it.
+
 ## Troubleshooting
 
 **Charts are empty.** The add-on snapshots one row per metric every
@@ -103,8 +138,8 @@ ebusd JSON payloads, computes derived values (ΔT, COP, hvac action),
 runs the optimizer every five minutes and publishes a tiny MQTT Discovery
 device back into Home Assistant.
 
-See [`ARCHITECTURE.md`](../ARCHITECTURE.md) in the repository for the
-full design notes.
+See [`ARCHITECTURE.md`](https://github.com/onemanfoundry/ha-genia-air/blob/main/ARCHITECTURE.md)
+in the repository for the full design notes.
 
 ## What's intentionally NOT here yet
 

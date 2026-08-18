@@ -43,6 +43,16 @@ Full user docs: [`genia_air/README.md`](genia_air/README.md).
   heat↔cool switchover, safety clamps and ΔT-anomaly alerts.
 - MQTT Discovery device so your automations can hook in.
 - Diagnostics tab listing every eBUS message and a force-read trigger.
+- **Hardware compatibility check**: Diagnostics compares your unit against
+  the exact hardware this add-on is tested on and flags firmware mismatches
+  or untested models, with a one-click **🐙 Report on GitHub** that opens a
+  pre-filled, anonymized compatibility issue — see below.
+
+> ⚠️ **Tested against exactly one unit**: Vaillant HMU00 SW=0901/HW=5103 +
+> CTLS2 SW=0509/HW=1304 + VWZ SW=0522/HW=5103. Other firmware or models may
+> work but are unverified — the Diagnostics tab checks your hardware against
+> this table and can generate an anonymous compatibility report to help add
+> support for yours. Details in [`genia_air/README.md`](genia_air/README.md#compatibility).
 
 ## Credits
 
@@ -83,9 +93,11 @@ dropped in line with Home Assistant 2025.12 deprecating them.
 
 ## Status
 
-v0.3.0 — first community release. Optimizer is deterministic and
-single-zone focused (ML and multi-zone are on the roadmap). Contributions
-and issue reports welcome.
+v0.4.0. Optimizer is deterministic and single-zone focused (ML and
+multi-zone are on the roadmap). New in this release: the hardware
+compatibility check and anonymized GitHub reporting flow described above —
+see [`genia_air/CHANGELOG.md`](genia_air/CHANGELOG.md) for the full history.
+Contributions and issue reports welcome.
 
 ## License
 

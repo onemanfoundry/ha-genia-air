@@ -155,3 +155,60 @@ def test_setpoint_effective_heating(mod):
     _set(mod, "ctls2", "z1OpMode", {"opmode": "auto"})
     _set(mod, "ctls2", "z1OpModeCooling", {"opmode": "off"})
     assert mod.compute_setpoint_effective() == 21.0
+
+
+# ── Compatibility check — device identification against KNOWN_GOOD_DEVICES ──
+
+def test_parse_scan_result_single_line(mod):
+    text = "08;Vaillant;HMU00;0901;5103;21;07;45;0010002779;0006\n"
+    devices = mod._parse_scan_result(text)
+    assert devices == [{
+        "address": "08", "manufacturer": "Vaillant", "id": "HMU00",
+        "sw_version": "0901", "hw_version": "5103",
+    }]
+
+
+def test_parse_scan_result_ignores_comments_and_junk(mod):
+    text = "# comment\n\nnot;a;valid;device;line;zz\n15;Vaillant;CTLS2;0509;1304\n"
+    devices = mod._parse_scan_result(text)
+    assert [d["id"] for d in devices] == ["CTLS2"]
+
+
+def test_compat_check_matched_exact_reference(mod, monkeypatch):
+    monkeypatch.setattr(
+        mod, "_ebusd_tcp_command",
+        lambda cmd, **kw: "08;Vaillant;HMU00;0901;5103\n15;Vaillant;CTLS2;0509;1304\n",
+    )
+    result = mod.compat_check()
+    assert {d["id"] for d in result["matched"]} == {"HMU00", "CTLS2"}
+    assert result["mismatched_firmware"] == []
+    assert result["unknown_device"] == []
+
+
+def test_compat_check_flags_firmware_mismatch(mod, monkeypatch):
+    monkeypatch.setattr(
+        mod, "_ebusd_tcp_command",
+        lambda cmd, **kw: "08;Vaillant;HMU00;0999;5103\n",
+    )
+    result = mod.compat_check()
+    assert result["matched"] == []
+    assert [d["id"] for d in result["mismatched_firmware"]] == ["HMU00"]
+
+
+def test_compat_check_flags_unknown_device(mod, monkeypatch):
+    monkeypatch.setattr(
+        mod, "_ebusd_tcp_command",
+        lambda cmd, **kw: "08;Vaillant;EHP00;0327;7201\n",
+    )
+    result = mod.compat_check()
+    assert result["matched"] == []
+    assert result["mismatched_firmware"] == []
+    assert [d["id"] for d in result["unknown_device"]] == ["EHP00"]
+
+
+def test_message_schema_snapshot_has_field_names_not_values(mod):
+    _set(mod, "hmu", "Status01", {"0": 35.0, "1": 30.0})
+    schema = mod._message_schema_snapshot()
+    assert schema == [{"circuit": "hmu", "message": "Status01", "fields": ["0", "1"]}]
+    # The whole point is anonymity: no live values anywhere in the output.
+    assert "35.0" not in str(schema) and "30.0" not in str(schema)

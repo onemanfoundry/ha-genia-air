@@ -1,0 +1,59 @@
+name: Device support / compatibility report
+description: >-
+  Your Vaillant unit doesn't exactly match the one this add-on was tested
+  on, or something isn't parsing right. Attach a compatibility report so we
+  can add support for your model.
+title: "[device-support] "
+labels: ["device-support"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This add-on is currently verified against exactly one unit:
+        Vaillant `HMU00` SW=0901/HW=5103 + `CTLS2` SW=0509/HW=1304 +
+        `VWZ` SW=0522/HW=5103. If your Diagnostics tab shows a different
+        firmware version or an untested product ID, this is the place to
+        report it.
+
+        **Before filing:** open the add-on's Web UI → **Diagnostics** tab →
+        click **📋 Compatibility report**. It downloads a small JSON file.
+        That file is built to be safe to post here — it only contains eBUS
+        protocol identifiers (bus address, manufacturer, product/firmware
+        IDs) and message/field *names*, never live sensor readings, your
+        network address, or credentials. Please still skim it before
+        attaching, just in case.
+
+  - type: textarea
+    id: compat-report
+    attributes:
+      label: Compatibility report JSON
+      description: Paste the full contents of the downloaded file, or drag it in as an attachment.
+      render: json
+    validations:
+      required: true
+
+  - type: input
+    id: model
+    attributes:
+      label: What Vaillant unit is this?
+      placeholder: "e.g. aroTHERM plus VWL 75/6 A, or Genia Air with a different HMU firmware"
+    validations:
+      required: true
+
+  - type: textarea
+    id: symptom
+    attributes:
+      label: What's actually going wrong?
+      description: >-
+        E.g. entities stuck on "unavailable", COP/ΔT look wrong, ebusd logs
+        a parsing error for a specific message, or you just want to confirm
+        compatibility before installing.
+    validations:
+      required: true
+
+  - type: textarea
+    id: ebusd-logs
+    attributes:
+      label: Relevant ebusd log lines (optional)
+      description: Copy any `[update notice]` / `ERR:` lines mentioning the message that's failing.
+      render: text
