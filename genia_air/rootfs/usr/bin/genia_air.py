@@ -35,7 +35,7 @@ from flask import Flask, abort, jsonify, request
 # Config & logging
 # ───────────────────────────────────────────────────────────────────────────
 
-VERSION = "0.6.0"
+VERSION = "0.6.1"
 
 
 def _load_options() -> dict:
@@ -162,6 +162,7 @@ CONF = {
     "control_session_min":   int(_opts.get("control_session_minutes", 60)),
     "control_ack_grace_min": int(_opts.get("control_ack_grace_minutes", 15)),
     "control_notify_target": str(_opts.get("control_notify_target", "") or ""),
+    "stale_data_min":        int(_opts.get("stale_data_minutes", 20)),
     "mqtt_host":             _mqtt.get("host", "core-mosquitto"),
     "mqtt_port":             _mqtt.get("port", 1883),
     "mqtt_user":             _mqtt.get("username", ""),
@@ -1095,18 +1096,24 @@ def task_control_watchdog() -> None:
         grace = CONF["control_ack_grace_min"] * 60
         expired = CONTROL_EXPIRES_AT is not None and now >= CONTROL_EXPIRES_AT
         stale = CONTROL_LAST_ACK_AT is not None and now - CONTROL_LAST_ACK_AT > grace
-        # Fail-closed: cheap liveness checks only (no DB/collect_snapshot —
-        # this runs every 30s and must stay fast). A broken ebusd/MQTT link
-        # means we can't trust reads or reliably write anyway — end the
-        # session now instead of waiting for its own timers to catch up.
+        # Fail-closed: cheap liveness checks only (no DB — this runs every
+        # 30s and must stay fast). A broken ebusd/MQTT link, or telemetry
+        # that stopped updating (a frozen sensor still LOOKS present but
+        # its value is stale), means we can't trust reads or reliably write
+        # anyway — end the session now instead of waiting for its own
+        # timers to catch up.
         ebusd_dead = EBUSD_PROCESS is None or EBUSD_PROCESS.poll() is not None
         mqtt_down = not MQTT_CONNECTED.is_set()
-        unhealthy = ebusd_dead or mqtt_down
+        with STATE_LOCK:
+            newest_ts = max((entry["ts"] for entry in STATE.values()), default=None)
+        data_stale = newest_ts is not None and now - newest_ts > CONF["stale_data_min"] * 60
+        unhealthy = ebusd_dead or mqtt_down or data_stale
         if not (expired or stale or unhealthy):
             return
         if unhealthy:
             reason = "Modo seguro: " + (", ".join(
-                r for r, cond in (("ebusd caído", ebusd_dead), ("MQTT desconectado", mqtt_down)) if cond))
+                r for r, cond in (("ebusd caído", ebusd_dead), ("MQTT desconectado", mqtt_down),
+                                   ("telemetría congelada", data_stale)) if cond))
         else:
             reason = ("Sesión de control total caducada" if expired
                        else "No se confirmó a tiempo que los valores siguen teniendo sentido")
@@ -1261,9 +1268,17 @@ def task_health_check() -> None:
     if not snap["mqtt_connected"]:
         ok = False
         reasons.append("MQTT disconnected")
-    if not STATE:
+    with STATE_LOCK:
+        state_empty = not STATE
+        newest_ts = max((entry["ts"] for entry in STATE.values()), default=None)
+    if state_empty:
         ok = False
         reasons.append("No ebusd traffic received")
+    elif newest_ts is not None:
+        newest_age = time.time() - newest_ts
+        if newest_age > CONF["stale_data_min"] * 60:
+            ok = False
+            reasons.append(f"Telemetry stale ({int(newest_age / 60)} min since last update)")
     if snap["maintenance_due"] and snap["maintenance_due"].lower() == "yes":
         ok = False
         reasons.append("Maintenance due")

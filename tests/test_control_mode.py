@@ -353,3 +353,42 @@ def test_manual_write_logs_old_and_new_value(mod, _clean_state, monkeypatch):
     assert detail["old_value"] == 19.0
     assert detail["new_value"] == 22.0
     assert detail["source"] == "manual"
+
+
+# ── stale telemetry: a frozen sensor is still "present" but must not be trusted ──
+
+def test_watchdog_reverts_on_stale_telemetry(mod, _clean_state):
+    _seed_state(mod, "ctls2", "z1ManualTemp", tempv=21.0)
+    mod.control_enable(session_minutes=240)  # long session, won't expire on its own
+
+    _clean_state["clock"]["now"] += mod.CONF["stale_data_min"] * 60 + 1  # no fresh data since
+
+    mod.task_control_watchdog()
+
+    assert mod.control_is_active() is False
+    assert "congelada" in _clean_state["notifications"][0][1]
+
+
+def test_watchdog_tolerates_data_fresher_than_the_stale_threshold(mod, _clean_state):
+    _seed_state(mod, "ctls2", "z1ManualTemp", tempv=21.0)
+    mod.control_enable(session_minutes=240)
+
+    _clean_state["clock"]["now"] += mod.CONF["stale_data_min"] * 60 - 5
+    mod.control_ack()  # keep the (unrelated) ack-grace timer from confounding this test
+    _seed_state(mod, "ctls2", "OutsideTempAvg", tempv=10.0)  # fresh update resets the staleness clock
+    _clean_state["clock"]["now"] += mod.CONF["stale_data_min"] * 60 - 5
+    mod.control_ack()
+
+    mod.task_control_watchdog()
+
+    assert mod.control_is_active() is True
+
+
+def test_health_check_flags_stale_telemetry(mod, _clean_state):
+    _seed_state(mod, "ctls2", "z1ManualTemp", tempv=21.0)
+    _clean_state["clock"]["now"] += mod.CONF["stale_data_min"] * 60 + 1
+
+    mod.task_health_check()
+
+    assert mod.HEALTH["ok"] is False
+    assert any("stale" in r.lower() for r in mod.HEALTH["reasons"])

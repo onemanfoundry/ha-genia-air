@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.6.1 — 2026-08-24
+
+- **Fail-closed on stale telemetry, not just a dead link.** A sensor that
+  stopped updating is still "present" in `STATE` — it just isn't true
+  anymore. New `stale_data_minutes` option (default 20): if nothing in
+  `STATE` has updated within that window, health reports it and an active
+  control session reverts immediately, same as a dead ebusd/MQTT link.
+- Documentation pass following an external review: explicit "this is an
+  Add-on, not a HACS integration" banner, a Beta status warning up top,
+  a Quick Start (5-minute install) checklist, a "before enabling control"
+  pre-flight checklist, and a read/write/optimizer support matrix for the
+  one verified unit (no fabricated rows for untested hardware).
+- `device-support` issue template now also asks for the eBUS adapter model
+  and HA/Supervisor version.
+
 ## 0.6.0 — 2026-08-24
 
 Hardening pass on the v0.5.0 safety model, following an external code
