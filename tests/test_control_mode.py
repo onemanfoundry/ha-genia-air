@@ -392,3 +392,71 @@ def test_health_check_flags_stale_telemetry(mod, _clean_state):
 
     assert mod.HEALTH["ok"] is False
     assert any("stale" in r.lower() for r in mod.HEALTH["reasons"])
+
+
+# ── simulate mode: exercise the real write path with no real hardware ──────
+
+def test_simulated_mqtt_client_writes_temp_field_into_state(mod):
+    client = mod._SimulatedMqttClient()
+    with mod.STATE_LOCK:
+        mod.STATE.clear()
+
+    client.publish("ebusd/ctls2/z1ManualTemp/set", "23.5")
+
+    assert mod.STATE[("ctls2", "z1ManualTemp")]["fields"]["tempv"] == 23.5
+
+
+def test_simulated_mqtt_client_writes_mode_field_into_state(mod):
+    client = mod._SimulatedMqttClient()
+    with mod.STATE_LOCK:
+        mod.STATE.clear()
+
+    client.publish("ebusd/ctls2/z1OpMode/set", "auto")
+
+    assert mod.STATE[("ctls2", "z1OpMode")]["fields"]["opmode"] == "auto"
+
+
+def test_simulated_mqtt_client_ignores_read_requests(mod):
+    client = mod._SimulatedMqttClient()
+    with mod.STATE_LOCK:
+        mod.STATE.clear()
+
+    client.publish("ebusd/ctls2/z1ManualTemp/get", "?")
+
+    assert ("ctls2", "z1ManualTemp") not in mod.STATE
+
+
+def test_simulate_start_seeds_plausible_state_and_marks_healthy(mod, _clean_state):
+    mod.simulate_start()
+
+    assert isinstance(mod.EBUSD_PROCESS, mod._SimulatedProcess)
+    assert isinstance(mod.MQTT_CLIENT, mod._SimulatedMqttClient)
+    assert mod.MQTT_CONNECTED.is_set()
+    assert mod._field("ctls2", "OutsideTempAvg", "tempv") is not None
+    mod.task_health_check()
+    assert mod.HEALTH["ok"] is True
+
+
+def test_simulate_mode_full_control_round_trip(mod, _clean_state, monkeypatch):
+    """The RV-02 round-trip — enable control, write a setpoint, confirm the
+    simulated bus reflects it, let the session expire, confirm the original
+    value is restored for real — run through the REAL mqtt_publish_write
+    (not the per-test mock), against the simulator instead of real hardware.
+    This is the closest thing to a physical round-trip test until real
+    hardware is available again."""
+    monkeypatch.setattr(mod, "mqtt_publish_write", mod._real_mqtt_publish_write)
+    mod.simulate_start()
+    client = mod.app.test_client()
+    baseline = mod._field("ctls2", "z1ManualTemp", "tempv")
+    assert baseline is not None
+
+    mod.control_enable(session_minutes=10)
+    r = client.post("/api/setpoint", json={"target_c": 24.0})
+    assert r.status_code == 200
+    assert mod._field("ctls2", "z1ManualTemp", "tempv") == 24.0
+
+    _clean_state["clock"]["now"] += 10 * 60 + 1
+    mod.task_control_watchdog()
+
+    assert mod.control_is_active() is False
+    assert mod._field("ctls2", "z1ManualTemp", "tempv") == baseline

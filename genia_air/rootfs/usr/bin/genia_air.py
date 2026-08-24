@@ -35,7 +35,7 @@ from flask import Flask, abort, jsonify, request
 # Config & logging
 # ───────────────────────────────────────────────────────────────────────────
 
-VERSION = "0.6.1"
+VERSION = "0.7.0"
 
 
 def _load_options() -> dict:
@@ -163,6 +163,7 @@ CONF = {
     "control_ack_grace_min": int(_opts.get("control_ack_grace_minutes", 15)),
     "control_notify_target": str(_opts.get("control_notify_target", "") or ""),
     "stale_data_min":        int(_opts.get("stale_data_minutes", 20)),
+    "simulate_hardware":     bool(_opts.get("simulate_hardware", False)),
     "mqtt_host":             _mqtt.get("host", "core-mosquitto"),
     "mqtt_port":             _mqtt.get("port", 1883),
     "mqtt_user":             _mqtt.get("username", ""),
@@ -477,6 +478,134 @@ def ebusd_stop() -> None:
             log.warning("ebusd did not exit on SIGTERM, sending SIGKILL")
             EBUSD_PROCESS.kill()
         EBUSD_PROCESS = None
+
+
+# ───────────────────────────────────────────────────────────────────────────
+# Simulate mode (`simulate_hardware: true`) — run the whole addon with no
+# real eBUS adapter or MQTT broker, against a synthetic bus. This is what
+# lets someone try the full UI, the optimizer, and a real full-control
+# enable → write → expire → revert cycle before ever owning an adapter —
+# and it's the same mechanism the automated fault-injection tests drive.
+#
+# Design: swap in a fake EBUSD_PROCESS (so every `.poll()`/`.pid` call site
+# keeps working unmodified) and a fake MQTT_CLIENT whose `.publish()` writes
+# straight into STATE instead of going over the network — every write path
+# (manual API, optimizer, control-session restore) still goes through the
+# real, already-hardened `mqtt_publish_write()` choke point unchanged; only
+# what's on the other end of "the network" is different. A background job
+# nudges a handful of read-only telemetry values so the UI has something
+# that moves.
+# ───────────────────────────────────────────────────────────────────────────
+
+class _SimulatedProcess:
+    """Stands in for EBUSD_PROCESS — every call site only ever uses
+    poll()/pid/terminate()/wait()/kill(), so that's all this needs."""
+    def __init__(self):
+        self.pid = -1
+
+    def poll(self):
+        return None  # "always running"
+
+    def terminate(self):
+        pass
+
+    def wait(self, timeout=None):
+        pass
+
+    def kill(self):
+        pass
+
+
+class _SimulatedMqttClient:
+    """Stands in for MQTT_CLIENT in simulate mode. `.publish()` on a
+    `.../set` topic writes the value straight into STATE with a fresh
+    timestamp — the same effect a real controller echoing the write back
+    over ebusd/MQTT would eventually have, just synchronous. Anything else
+    (read requests, HA discovery topics, the optimizer command topic) is a
+    harmless no-op — the simulator doesn't need a real broker to relay
+    those to anyone."""
+    def publish(self, topic: str, payload, qos: int = 0, retain: bool = False) -> None:
+        parts = topic.split("/")
+        if len(parts) != 4 or parts[3] != "set":
+            return
+        _, circuit, msg, _ = parts
+        key_cast = WRITABLE_FIELD_KEY.get(msg)
+        if not key_cast:
+            return
+        key, cast = key_cast
+        try:
+            value = cast(payload)
+        except (TypeError, ValueError):
+            return
+        with STATE_LOCK:
+            entry = STATE.setdefault((circuit, msg), {"fields": {}, "raw": "", "ts": 0.0})
+            entry["fields"][key] = value
+            entry["ts"] = time.time()
+
+    def subscribe(self, *a, **k):
+        pass
+
+    def message_callback_add(self, *a, **k):
+        pass
+
+
+SIM_STATE_SEED = {
+    ("hmu", "CurrentConsumedPower"):  {"0": 1.1},
+    ("hmu", "CurrentYieldPower"):     {"0": 3.8},
+    ("hmu", "CurrentCompressorUtil"): {"0": 62.0},
+    ("hmu", "WaterThroughput"):       {"0": 1400.0},
+    ("hmu", "Status01"):              {"0": 33.5, "1": 28.9},
+    ("hmu", "State"):                 {"3": "9"},  # heating
+    ("hmu", "Hours"):                 {"0": 4200},
+    ("hmu", "HoursHc"):               {"0": 3900},
+    ("hmu", "HoursCool"):             {"0": 300},
+    ("ctls2", "z1RoomTemp"):          {"tempv": 21.0},
+    ("ctls2", "z1ActualRoomTempDesired"): {"tempv": 21.0},
+    ("ctls2", "z1ManualTemp"):        {"tempv": 21.0},
+    ("ctls2", "z1DayTemp"):           {"tempv": 21.0},
+    ("ctls2", "z1NightTemp"):         {"tempv": 18.0},
+    ("ctls2", "z1HolidayTemp"):       {"tempv": 15.0},
+    ("ctls2", "z1CoolingTemp"):       {"tempv": 24.0},
+    ("ctls2", "z1OpMode"):            {"opmode": "auto"},
+    ("ctls2", "z1OpModeCooling"):     {"opmode": "off"},
+    ("ctls2", "OutsideTempAvg"):      {"tempv": 8.0},
+    ("ctls2", "MaintenanceDue"):      {"value": "no"},
+    ("ctls2", "GlobalSystemOff"):     {"value": "0"},
+    ("ctls2", "YieldTotal"):          {"0": 12500.0},
+    ("ctls2", "Hc1MaxFlowTempDesired"): {"tempv": 33.0},
+    ("ctls2", "Hc1MinFlowTempDesired"): {"tempv": 20.0},
+    ("ctls2", "Hc1SummerTempLimit"):  {"tempv": 19.0},
+    ("ctls2", "ContinuosHeating"):    {"tempv": -8.0},
+}
+
+
+def task_simulate_bus() -> None:
+    """Nudge the synthetic telemetry so it isn't perfectly static — small
+    plausible drift, not a physically accurate model. Called once at boot
+    to seed STATE, then on a schedule to keep it "alive" (and to keep
+    task_health_check's stale-telemetry check from ever firing)."""
+    import random
+    now = time.time()
+    with STATE_LOCK:
+        for (circuit, msg), fields in SIM_STATE_SEED.items():
+            entry = STATE.setdefault((circuit, msg), {"fields": dict(fields), "raw": "", "ts": now})
+            entry["ts"] = now
+        outside = STATE[("ctls2", "OutsideTempAvg")]["fields"]
+        outside["tempv"] = round(max(-5.0, min(20.0, outside["tempv"] + random.uniform(-0.3, 0.3))), 1)
+        room = STATE[("ctls2", "z1RoomTemp")]["fields"]
+        room["tempv"] = round(room["tempv"] + random.uniform(-0.1, 0.1), 1)
+
+
+def simulate_start() -> None:
+    """Entry point used by boot() instead of ebusd_start()+mqtt_start()
+    when simulate_hardware is enabled."""
+    global EBUSD_PROCESS, MQTT_CLIENT
+    EBUSD_PROCESS = _SimulatedProcess()
+    MQTT_CLIENT = _SimulatedMqttClient()
+    MQTT_CONNECTED.set()
+    task_simulate_bus()  # seed STATE immediately — don't wait for the first scheduled tick
+    log.warning("simulate_hardware is ON — running against synthetic telemetry, "
+                "no real eBUS adapter or MQTT broker is used")
 
 
 # ───────────────────────────────────────────────────────────────────────────
@@ -2293,8 +2422,12 @@ setInterval(()=>{ if(document.querySelector(".tab.active").dataset.tab==="optimi
 def boot() -> None:
     db_init_safe()
     _install_signal_handlers()
-    ebusd_start()
-    mqtt_start()
+    if CONF["simulate_hardware"]:
+        simulate_start()
+        SCHEDULER.add_job(task_simulate_bus, "interval", seconds=30, id="simulate_bus")
+    else:
+        ebusd_start()
+        mqtt_start()
 
     # Initial sync runs later than before — give ebusd a few seconds to
     # finish its bus scan and seed the MQTT discovery before we ask for reads.

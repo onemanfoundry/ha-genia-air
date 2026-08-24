@@ -105,6 +105,21 @@ on the Controls tab for the first time:
 - [ ] You've read [Safety model](#safety-model) below and understand that
       control sessions expire and revert on their own.
 
+### Try it without hardware
+
+Don't have an eBUS adapter yet, or just want to see how this works before
+wiring anything up? Set `simulate_hardware: true` in the configuration tab
+and start the addon — no adapter, no MQTT broker needed. You get the full
+UI (all 5 tabs) running against synthetic-but-plausible telemetry that
+drifts slowly over time, and you can safely enable full control, change
+setpoints, and watch a session expire and revert — nothing here ever
+touches a real device, because there isn't one. This is also exactly what
+the automated test suite uses to exercise the full enable → write →
+expire → restore cycle without needing real hardware in CI
+(`test_simulate_mode_full_control_round_trip` in
+`tests/test_control_mode.py`). Turn `simulate_hardware` back off and
+configure `ebus_device` when you're ready to connect a real unit.
+
 ## Configuration
 
 | Option | Default | Notes |
@@ -123,6 +138,7 @@ on the Controls tab for the first time:
 | `control_ack_grace_minutes` | `15` | How long a full-control session can go without a "still looks right" confirmation before auto-reverting |
 | `control_notify_target` | *(empty → `notify.notify`)* | HA notify service to call when a session auto-reverts, e.g. `notify.mobile_app_myphone` |
 | `stale_data_minutes` | `20` | If nothing in the bus telemetry has updated within this window, health reports it and an active control session reverts — a frozen sensor is still "present" but no longer true |
+| `simulate_hardware` | `false` | Run against synthetic telemetry instead of a real eBUS adapter — see [Try it without hardware](#try-it-without-hardware) |
 
 ## Safety model
 
@@ -168,17 +184,22 @@ when MQTT isn't actually connected — the UI gets a clear error instead of
 a silent no-op.
 
 **Validated so far:** the full gating/snapshot/expiry/revert/fail-closed
-logic has 50 unit tests (`tests/test_control_mode.py` + `test_logic.py`),
-and the addon has been built and started end-to-end on a real HAOS
-Supervisor (see `INFRA/servers.md` VM 120) against a placeholder eBUS
-device. A live round-trip against a real unit (enable control → write a
-real setpoint → let it auto-revert → confirm the boiler actually reports
-the original value again) is still pending — the eBUS Adapter Shield used
-for that test needs a power-cycle first (its TCP port was refusing new
-connections, unrelated to this addon). **This addon has not yet been
-validated against real hardware end-to-end and should be treated as beta**
-until that round-trip (and ideally a few weeks of incident-free use across
-more than one installation) is confirmed.
+logic has 55 unit tests (`tests/test_control_mode.py` + `test_logic.py`),
+including a full enable → write → expire → restore round-trip run against
+the built-in [simulator](#try-it-without-hardware)
+(`test_simulate_mode_full_control_round_trip`). The addon has also been
+built and started end-to-end on a real HAOS Supervisor (see
+`INFRA/servers.md` VM 120). What's still missing is the same round-trip
+against **real** hardware (enable control → write a real setpoint → let it
+auto-revert → confirm the boiler actually reports the original value
+again) — the eBUS Adapter Shield used for that test needs a power-cycle
+first (its TCP port was refusing new connections, unrelated to this
+addon). The simulated round-trip proves the *logic* is correct; it can't
+prove the real MQTT↔ebusd↔eBUS↔heat-pump chain behaves the same way.
+**This addon has not yet been validated against real hardware end-to-end
+and should be treated as beta** until that round-trip (and ideally a few
+weeks of incident-free use across more than one installation) is
+confirmed.
 
 ## Compatibility
 

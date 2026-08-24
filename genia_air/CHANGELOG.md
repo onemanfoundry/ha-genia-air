@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.7.0 — 2026-08-24
+
+- **Simulate mode** (`simulate_hardware: true`): run the entire addon —
+  full UI, optimizer, and a real full-control enable → write → expire →
+  restore cycle — against synthetic telemetry, with no eBUS adapter and no
+  MQTT broker required. A fake `EBUSD_PROCESS`/`MQTT_CLIENT` pair swaps in
+  underneath the existing (unmodified) `mqtt_publish_write()` choke point:
+  every write path is exercised exactly as it would be against real
+  hardware, just with a synthetic bus on the other end. Lets a new user
+  try the addon before owning an adapter, and gives the test suite a real
+  round-trip to run in CI.
+- New option: `simulate_hardware` (default `false` — off unless you turn
+  it on).
+- New tests (55 total): the simulated MQTT client's write-back into
+  `STATE`, `simulate_start()` producing a healthy boot state, and
+  `test_simulate_mode_full_control_round_trip` — enable control, write a
+  setpoint through the real API, confirm the simulated bus reflects it,
+  let the session expire, confirm the original value comes back for real.
+  This is the closest thing to the outstanding physical round-trip test
+  until real hardware is available again (see README → Safety model for
+  what it does and doesn't prove).
+
 ## 0.6.1 — 2026-08-24
 
 - **Fail-closed on stale telemetry, not just a dead link.** A sensor that
