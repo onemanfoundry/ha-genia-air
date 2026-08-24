@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import os
 import re
 import signal
@@ -34,7 +35,7 @@ from flask import Flask, abort, jsonify, request
 # Config & logging
 # ───────────────────────────────────────────────────────────────────────────
 
-VERSION = "0.5.0"
+VERSION = "0.6.0"
 
 
 def _load_options() -> dict:
@@ -654,12 +655,30 @@ def _on_mqtt_message(_client, _userdata, msg):
         STATE[(circuit, message)] = {"fields": fields, "raw": raw, "ts": time.time()}
 
 
-def mqtt_publish_write(circuit: str, msg: str, value) -> None:
+def mqtt_publish_write(circuit: str, msg: str, value) -> bool:
+    """Publish a write command — the single choke point every write path in
+    the addon goes through (manual API, optimizer, safety clamps, control-
+    session snapshot restore), so validation lives here once rather than
+    being re-implemented (or forgotten) at each call site.
+
+    Returns False, and does NOT publish, if the value isn't safe to send
+    (non-finite float — NaN/Infinity can reach here via a JSON payload,
+    since Python's json module accepts NaN/Infinity as an extension) or if
+    MQTT isn't actually connected right now. Never silently "succeeds" when
+    it didn't: MQTT_CLIENT being non-None only means it exists, not that
+    it's connected — a stale reference used to be enough to attempt a
+    publish while disconnected."""
+    if isinstance(value, float) and not math.isfinite(value):
+        log.error("Refusing to write %s/%s: non-finite value %r", circuit, msg, value)
+        return False
+    if not MQTT_CLIENT or not MQTT_CONNECTED.is_set():
+        log.error("Refusing to write %s/%s: MQTT not connected", circuit, msg)
+        return False
     topic = f"{CONF['topic_prefix']}/{circuit}/{msg}/set"
     payload = str(value)
     log.info("MQTT write %s = %s", topic, payload)
-    if MQTT_CLIENT:
-        MQTT_CLIENT.publish(topic, payload, qos=0, retain=False)
+    MQTT_CLIENT.publish(topic, payload, qos=0, retain=False)
+    return True
 
 
 def mqtt_request_read(circuit: str, msg: str) -> None:
@@ -1076,10 +1095,21 @@ def task_control_watchdog() -> None:
         grace = CONF["control_ack_grace_min"] * 60
         expired = CONTROL_EXPIRES_AT is not None and now >= CONTROL_EXPIRES_AT
         stale = CONTROL_LAST_ACK_AT is not None and now - CONTROL_LAST_ACK_AT > grace
-        if not (expired or stale):
+        # Fail-closed: cheap liveness checks only (no DB/collect_snapshot —
+        # this runs every 30s and must stay fast). A broken ebusd/MQTT link
+        # means we can't trust reads or reliably write anyway — end the
+        # session now instead of waiting for its own timers to catch up.
+        ebusd_dead = EBUSD_PROCESS is None or EBUSD_PROCESS.poll() is not None
+        mqtt_down = not MQTT_CONNECTED.is_set()
+        unhealthy = ebusd_dead or mqtt_down
+        if not (expired or stale or unhealthy):
             return
-        reason = ("Sesión de control total caducada" if expired
-                   else "No se confirmó a tiempo que los valores siguen teniendo sentido")
+        if unhealthy:
+            reason = "Modo seguro: " + (", ".join(
+                r for r, cond in (("ebusd caído", ebusd_dead), ("MQTT desconectado", mqtt_down)) if cond))
+        else:
+            reason = ("Sesión de control total caducada" if expired
+                       else "No se confirmó a tiempo que los valores siguen teniendo sentido")
         snapshot, CONTROL_SNAPSHOT = CONTROL_SNAPSHOT, None
         CONTROL_ENABLED = False
         CONTROL_EXPIRES_AT = None
@@ -1138,33 +1168,40 @@ def task_optimize() -> None:
     if can_write:
         # --- safety enforcement on flow temps ---
         if snap["max_flow_temp"] is not None and snap["max_flow_temp"] > CONF["max_flow_temp_safe"] + 0.1:
-            actions.append(_force_write_safe(
+            result = _force_write_safe(
                 "ctls2", "Hc1MaxFlowTempDesired",
                 CONF["max_flow_temp_safe"],
                 f"max_flow_temp {snap['max_flow_temp']} > safe limit {CONF['max_flow_temp_safe']}",
-            ))
+                old_value=snap["max_flow_temp"],
+            )
+            if result:
+                actions.append(result)
         if snap["min_flow_temp"] is not None and snap["min_flow_temp"] < CONF["min_flow_temp_safe"] - 0.1:
-            actions.append(_force_write_safe(
+            result = _force_write_safe(
                 "ctls2", "Hc1MinFlowTempDesired",
                 CONF["min_flow_temp_safe"],
                 f"min_flow_temp {snap['min_flow_temp']} < safe limit {CONF['min_flow_temp_safe']}",
-            ))
+                old_value=snap["min_flow_temp"],
+            )
+            if result:
+                actions.append(result)
 
     # --- weather-compensated flow temp target ---
     out = snap["outside_temp"]
-    if can_write and out is not None and snap["hvac_mode"] == "heat":
+    out_valid = out is not None and math.isfinite(out)
+    if can_write and out_valid and snap["hvac_mode"] == "heat":
         # Simple linear curve: at -10°C → 35; at +15°C → 25. Clamped.
         target = 30.0 - (out + 10) * (10.0 / 25.0)
         target = max(CONF["min_flow_temp_safe"] + 4, min(CONF["max_flow_temp_safe"], round(target, 1)))
         current = snap["max_flow_temp"]
         if current is not None and abs(target - current) >= 0.5:
-            mqtt_publish_write("ctls2", "Hc1MaxFlowTempDesired", target)
-            db_log_decision(
-                "flow_curve",
-                f"max_flow_temp {current}→{target} based on outdoor {out:.1f}°C",
-                {"target": target, "outside": out, "previous": current},
-            )
-            actions.append({"kind": "flow_curve", "to": target})
+            if mqtt_publish_write("ctls2", "Hc1MaxFlowTempDesired", target):
+                db_log_decision(
+                    "flow_curve",
+                    f"max_flow_temp {current}→{target} based on outdoor {out:.1f}°C",
+                    {"old_value": current, "new_value": target, "outside": out, "source": "optimizer"},
+                )
+                actions.append({"kind": "flow_curve", "to": target})
 
     # --- delta-T anomaly alert (no actuation — always runs, even read-only) ---
     dt = snap["delta_t"]
@@ -1177,33 +1214,40 @@ def task_optimize() -> None:
             db_log_decision("alert", reason, {"delta_t": dt, "target": CONF["target_delta_t"]})
 
     # --- summer/winter switchover ---
-    if can_write and out is not None:
+    if can_write and out_valid:
         if out > CONF["summer_temp_limit"] + 2 and snap["hvac_mode"] == "heat":
-            actions.append({"kind": "season_switch", "to": "cool"})
-            db_log_decision(
-                "season_switch",
-                f"outdoor {out:.1f}°C > summer limit + 2 → switch to cooling",
-                {"outside": out},
-            )
-            mqtt_publish_write("ctls2", "z1OpMode", "off")
-            mqtt_publish_write("ctls2", "z1OpModeCooling", "auto")
+            ok1 = mqtt_publish_write("ctls2", "z1OpMode", "off")
+            ok2 = mqtt_publish_write("ctls2", "z1OpModeCooling", "auto")
+            if ok1 and ok2:
+                actions.append({"kind": "season_switch", "to": "cool"})
+                db_log_decision(
+                    "season_switch",
+                    f"outdoor {out:.1f}°C > summer limit + 2 → switch to cooling",
+                    {"old_mode": "heat", "new_mode": "cool", "outside": out, "source": "optimizer"},
+                )
         elif out < CONF["summer_temp_limit"] - 5 and snap["hvac_mode"] == "cool":
-            actions.append({"kind": "season_switch", "to": "heat"})
-            db_log_decision(
-                "season_switch",
-                f"outdoor {out:.1f}°C < summer limit - 5 → switch to heating",
-                {"outside": out},
-            )
-            mqtt_publish_write("ctls2", "z1OpModeCooling", "off")
-            mqtt_publish_write("ctls2", "z1OpMode", "auto")
+            ok1 = mqtt_publish_write("ctls2", "z1OpModeCooling", "off")
+            ok2 = mqtt_publish_write("ctls2", "z1OpMode", "auto")
+            if ok1 and ok2:
+                actions.append({"kind": "season_switch", "to": "heat"})
+                db_log_decision(
+                    "season_switch",
+                    f"outdoor {out:.1f}°C < summer limit - 5 → switch to heating",
+                    {"old_mode": "cool", "new_mode": "heat", "outside": out, "source": "optimizer"},
+                )
 
     log.info("optimize cycle: %d actions (writes %s)", len(actions),
               "enabled" if can_write else "read-only")
 
 
-def _force_write_safe(circuit: str, msg: str, value, reason: str) -> dict:
-    mqtt_publish_write(circuit, msg, value)
-    db_log_decision("safety", reason, {"circuit": circuit, "msg": msg, "value": value})
+def _force_write_safe(circuit: str, msg: str, value, reason: str, old_value=None) -> dict | None:
+    if not mqtt_publish_write(circuit, msg, value):
+        db_log_decision("write_rejected", f"safety clamp rejected: {reason}",
+                        {"circuit": circuit, "msg": msg, "value": value, "source": "safety"})
+        return None
+    db_log_decision("safety", reason,
+                    {"circuit": circuit, "msg": msg, "old_value": old_value, "new_value": value,
+                     "source": "safety"})
     return {"kind": "safety", "msg": msg, "to": value}
 
 
@@ -1433,6 +1477,16 @@ def api_ebusd_action():
                     "running": EBUSD_PROCESS is not None and EBUSD_PROCESS.poll() is None})
 
 
+def _old_value_for(circuit: str, msg: str):
+    """Best-effort read of the current value of a writable field, for audit
+    logging — None if it's not one we track (unknown msg) or never read."""
+    key_cast = WRITABLE_FIELD_KEY.get(msg)
+    if not key_cast:
+        return None
+    key, cast = key_cast
+    return _field(circuit, msg, key, cast=cast)
+
+
 @app.route("/api/write", methods=["POST"])
 def api_write():
     if not control_is_active():
@@ -1448,11 +1502,16 @@ def api_write():
         value = max(CONF["min_flow_temp_safe"] + 4, min(CONF["max_flow_temp_safe"], float(value)))
     if msg == "Hc1MinFlowTempDesired":
         value = max(CONF["min_flow_temp_safe"], min(CONF["max_flow_temp_safe"] - 4, float(value)))
-    mqtt_publish_write(circuit, msg, value)
+    old_value = _old_value_for(circuit, msg)
     user = (request.headers.get("X-Remote-User-Name")
             or request.headers.get("X-Remote-User-Id", "unknown"))
-    db_log_decision("user_write", f"{circuit}/{msg}={value} by user {user[:8]}",
-                    {"circuit": circuit, "msg": msg, "value": value, "user": user})
+    if not mqtt_publish_write(circuit, msg, value):
+        db_log_decision("write_rejected", f"{circuit}/{msg}={value} rejected (invalid value or MQTT down)",
+                        {"circuit": circuit, "msg": msg, "value": value, "source": "manual", "user": user})
+        abort(503)
+    db_log_decision("user_write", f"{circuit}/{msg}: {old_value} → {value} by user {user[:8]}",
+                    {"circuit": circuit, "msg": msg, "old_value": old_value, "new_value": value,
+                     "source": "manual", "user": user})
     return jsonify({"ok": True, "circuit": circuit, "msg": msg, "value": value})
 
 
@@ -1463,15 +1522,19 @@ def api_mode():
     mode = (request.get_json(force=True, silent=True) or {}).get("mode", "")
     if mode not in ("off", "heat", "cool", "auto"):
         abort(400)
+    old_mode = compute_hvac_mode()
     pairs = {
         "off":  [("z1OpMode", "off"),  ("z1OpModeCooling", "off")],
         "heat": [("z1OpMode", "auto"), ("z1OpModeCooling", "off")],
         "cool": [("z1OpMode", "off"),  ("z1OpModeCooling", "auto")],
         "auto": [("z1OpMode", "auto"), ("z1OpModeCooling", "auto")],
     }[mode]
-    for msg, val in pairs:
-        mqtt_publish_write("ctls2", msg, val)
-    db_log_decision("user_mode", f"HVAC mode → {mode}", {"mode": mode})
+    if not all(mqtt_publish_write("ctls2", msg, val) for msg, val in pairs):
+        db_log_decision("write_rejected", f"HVAC mode → {mode} rejected (MQTT down)",
+                        {"mode": mode, "source": "manual"})
+        abort(503)
+    db_log_decision("user_mode", f"HVAC mode: {old_mode} → {mode}",
+                    {"old_mode": old_mode, "new_mode": mode, "source": "manual"})
     return jsonify({"ok": True, "mode": mode})
 
 
@@ -1485,8 +1548,13 @@ def api_setpoint():
         abort(400)
     hvac = compute_hvac_mode()
     msg = "z1CoolingTemp" if hvac == "cool" else "z1ManualTemp"
-    mqtt_publish_write("ctls2", msg, target)
-    db_log_decision("user_setpoint", f"{msg} = {target}°C", {"msg": msg, "value": target})
+    old_value = _old_value_for("ctls2", msg)
+    if not mqtt_publish_write("ctls2", msg, target):
+        db_log_decision("write_rejected", f"{msg} = {target}°C rejected (MQTT down)",
+                        {"msg": msg, "value": target, "source": "manual"})
+        abort(503)
+    db_log_decision("user_setpoint", f"{msg}: {old_value} → {target}°C",
+                    {"msg": msg, "old_value": old_value, "new_value": target, "source": "manual"})
     return jsonify({"ok": True, "msg": msg, "value": target})
 
 

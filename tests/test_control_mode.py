@@ -29,12 +29,22 @@ def mod(tmp_path_factory):
     m = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(m)
     m.db_init()  # task_optimize()/collect_snapshot() query the snapshots table
+    m._real_mqtt_publish_write = m.mqtt_publish_write  # unpatched, for guard-logic tests
     return m
+
+
+class _FakeEbusdProcess:
+    """Stands in for the real subprocess.Popen handle — poll() returning
+    None means "still running", matching subprocess semantics."""
+    def poll(self):
+        return None
 
 
 @pytest.fixture(autouse=True)
 def _clean_state(mod, monkeypatch):
-    """Each test starts read-only, with an empty STATE, a fake clock, and
+    """Each test starts read-only, with an empty STATE, a fake clock, a
+    HEALTHY link (ebusd running + MQTT connected — individual tests break
+    this deliberately to exercise the fail-closed path), and
     writes/notifications captured instead of hitting the network."""
     with mod.STATE_LOCK:
         mod.STATE.clear()
@@ -42,19 +52,24 @@ def _clean_state(mod, monkeypatch):
     mod.CONTROL_EXPIRES_AT = None
     mod.CONTROL_LAST_ACK_AT = None
     mod.CONTROL_SNAPSHOT = None
+    mod.EBUSD_PROCESS = _FakeEbusdProcess()
+    mod.MQTT_CONNECTED.set()
 
     clock = {"now": 1_000_000.0}
     monkeypatch.setattr(mod.time, "time", lambda: clock["now"])
 
     writes: list[tuple[str, str, object]] = []
-    monkeypatch.setattr(mod, "mqtt_publish_write",
-                         lambda circuit, msg, value: writes.append((circuit, msg, value)))
+    write_ok = {"value": True}
+    monkeypatch.setattr(
+        mod, "mqtt_publish_write",
+        lambda circuit, msg, value: (writes.append((circuit, msg, value)), write_ok["value"])[1]
+    )
 
     notifications: list[tuple[str, str]] = []
     monkeypatch.setattr(mod, "_notify_ha",
                          lambda title, message: notifications.append((title, message)))
 
-    yield {"clock": clock, "writes": writes, "notifications": notifications}
+    yield {"clock": clock, "writes": writes, "notifications": notifications, "write_ok": write_ok}
 
 
 def _seed_state(mod, circuit, msg, **fields):
@@ -248,3 +263,93 @@ def test_watchdog_does_not_revert_a_session_renewed_at_the_boundary(mod, _clean_
 
     assert mod.control_is_active() is True
     assert _clean_state["notifications"] == []
+
+
+# ── fail-closed: never fail-open on a broken link ──────────────────────────
+
+def test_watchdog_reverts_when_ebusd_dies_during_a_session(mod, _clean_state):
+    _seed_state(mod, "ctls2", "z1ManualTemp", tempv=21.0)
+    mod.control_enable(session_minutes=60)
+    mod.EBUSD_PROCESS = None  # matches "process not running"
+
+    mod.task_control_watchdog()
+
+    assert mod.control_is_active() is False
+    assert len(_clean_state["notifications"]) == 1
+    assert "ebusd" in _clean_state["notifications"][0][1]
+
+
+def test_watchdog_reverts_when_mqtt_disconnects_during_a_session(mod, _clean_state):
+    _seed_state(mod, "ctls2", "z1ManualTemp", tempv=21.0)
+    mod.control_enable(session_minutes=60)
+    mod.MQTT_CONNECTED.clear()
+
+    mod.task_control_watchdog()
+
+    assert mod.control_is_active() is False
+    assert "MQTT" in _clean_state["notifications"][0][1]
+
+
+def test_healthy_session_is_not_touched_by_the_fail_closed_check(mod, _clean_state):
+    mod.control_enable(session_minutes=60)
+    mod.task_control_watchdog()
+    assert mod.control_is_active() is True
+    assert _clean_state["notifications"] == []
+
+
+# ── mqtt_publish_write: the real guard logic (unpatched) ───────────────────
+
+def test_real_publish_rejects_nan(mod):
+    assert mod._real_mqtt_publish_write("ctls2", "z1ManualTemp", float("nan")) is False
+
+
+def test_real_publish_rejects_infinity(mod):
+    assert mod._real_mqtt_publish_write("ctls2", "z1ManualTemp", float("inf")) is False
+
+
+def test_real_publish_rejects_when_mqtt_not_connected(mod):
+    mod.MQTT_CONNECTED.clear()
+    try:
+        assert mod._real_mqtt_publish_write("ctls2", "z1ManualTemp", 21.0) is False
+    finally:
+        mod.MQTT_CONNECTED.set()  # restore the healthy default other tests rely on
+
+
+def test_real_publish_accepts_a_normal_value_when_connected(mod):
+    mod.MQTT_CLIENT = None  # no real client in tests — publish() would explode
+    try:
+        mod.MQTT_CLIENT = type("FakeClient", (), {"publish": lambda self, *a, **k: None})()
+        assert mod._real_mqtt_publish_write("ctls2", "z1ManualTemp", 21.0) is True
+    finally:
+        mod.MQTT_CLIENT = None
+
+
+# ── API endpoints surface a write failure instead of pretending success ────
+
+def test_api_write_returns_503_when_publish_fails(mod, _clean_state):
+    mod.control_enable()
+    _clean_state["write_ok"]["value"] = False
+    client = mod.app.test_client()
+
+    r = client.post("/api/setpoint", json={"target_c": 22})
+
+    assert r.status_code == 503
+
+
+# ── audit log carries old/new value and a source label ─────────────────────
+
+def test_manual_write_logs_old_and_new_value(mod, _clean_state, monkeypatch):
+    _seed_state(mod, "ctls2", "z1ManualTemp", tempv=19.0)
+    mod.control_enable()
+    logged = []
+    monkeypatch.setattr(mod, "db_log_decision",
+                         lambda kind, reason, detail: logged.append((kind, reason, detail)))
+    client = mod.app.test_client()
+
+    client.post("/api/setpoint", json={"target_c": 22})
+
+    kind, reason, detail = logged[-1]
+    assert kind == "user_setpoint"
+    assert detail["old_value"] == 19.0
+    assert detail["new_value"] == 22.0
+    assert detail["source"] == "manual"

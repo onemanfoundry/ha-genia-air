@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.6.0 — 2026-08-24
+
+Hardening pass on the v0.5.0 safety model, following an external code
+review focused on failure-mode behavior (what happens when things go
+wrong, not just the happy path).
+
+- **Fail-closed, not fail-open.** If ebusd dies or MQTT disconnects while
+  a full-control session is active, the session ends immediately (checked
+  every 30s) — restoring what it can and flipping to read-only — instead
+  of waiting for the session's own expiry/ack timers. An unhealthy link
+  means the addon can't trust its own reads or reliably write anyway.
+- **`mqtt_publish_write()` is now the single validated choke point** every
+  write path goes through (manual API, optimizer, safety clamps, session
+  restore): refuses non-finite values (NaN/Infinity, reachable via a JSON
+  payload since Python's `json` module accepts them as an extension) and
+  refuses to publish when MQTT isn't actually connected — a stale client
+  reference used to be treated as "connected enough to try." Callers now
+  check the return value instead of assuming success.
+- `/api/write`, `/api/mode`, `/api/setpoint` return `503` (and log a
+  `write_rejected` decision) instead of silently reporting `{"ok": true}`
+  when the underlying publish didn't actually happen.
+- **Audit log now records old value → new value and a source** (`manual`,
+  `optimizer`, `safety`) on every write decision, not just the new value —
+  answers "what was it before, and who/what changed it."
+
 ## 0.5.0 — 2026-08-24
 
 - **Read-only by default — full control is now a gated, time-boxed

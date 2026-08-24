@@ -107,14 +107,27 @@ no separate "let the optimizer run forever without asking" mode; if you want
 the optimizer active for days, you re-confirm every `control_ack_grace_minutes`
 like anything else.
 
-**Validated so far:** the full gating/snapshot/expiry/revert logic has 16
-unit tests (`tests/test_control_mode.py`), and the addon has been built and
-started end-to-end on a real HAOS Supervisor (see `INFRA/servers.md` VM 120)
-against a placeholder eBUS device. A live round-trip against a real unit
-(enable control → write a real setpoint → let it auto-revert → confirm the
-boiler actually reports the original value again) is still pending — the
-eBUS Adapter Shield used for that test needs a power-cycle first (its TCP
-port was refusing new connections, unrelated to this addon).
+**Fail-closed, not fail-open.** If ebusd dies or MQTT disconnects while a
+session is active, the session ends immediately (checked every 30s) rather
+than waiting for its own expiry/ack timers — an unhealthy link means the
+addon can't trust what it's reading, so it can't safely keep controlling
+anything. Separately, every write (manual, optimizer, or a safety clamp)
+goes through one validated choke point that refuses non-finite values
+(NaN/Infinity) and refuses to publish at all when MQTT isn't actually
+connected — the UI gets a clear error instead of a silent no-op.
+
+**Validated so far:** the full gating/snapshot/expiry/revert/fail-closed
+logic has 47 unit tests (`tests/test_control_mode.py` + `test_logic.py`),
+and the addon has been built and started end-to-end on a real HAOS
+Supervisor (see `INFRA/servers.md` VM 120) against a placeholder eBUS
+device. A live round-trip against a real unit (enable control → write a
+real setpoint → let it auto-revert → confirm the boiler actually reports
+the original value again) is still pending — the eBUS Adapter Shield used
+for that test needs a power-cycle first (its TCP port was refusing new
+connections, unrelated to this addon). **This addon has not yet been
+validated against real hardware end-to-end and should be treated as beta**
+until that round-trip (and ideally a few weeks of incident-free use across
+more than one installation) is confirmed.
 
 ## Compatibility
 
