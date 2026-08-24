@@ -34,7 +34,7 @@ from flask import Flask, abort, jsonify, request
 # Config & logging
 # ───────────────────────────────────────────────────────────────────────────
 
-VERSION = "0.4.0"
+VERSION = "0.5.0"
 
 
 def _load_options() -> dict:
@@ -158,6 +158,9 @@ CONF = {
     "max_flow_temp_safe":    float(_opts.get("max_flow_temp_safe", 35.0)),
     "summer_temp_limit":     float(_opts.get("summer_temp_limit", 19.0)),
     "optimize_cycle_min":    int(_opts.get("optimize_cycle_minutes", 5)),
+    "control_session_min":   int(_opts.get("control_session_minutes", 60)),
+    "control_ack_grace_min": int(_opts.get("control_ack_grace_minutes", 15)),
+    "control_notify_target": str(_opts.get("control_notify_target", "") or ""),
     "mqtt_host":             _mqtt.get("host", "core-mosquitto"),
     "mqtt_port":             _mqtt.get("port", 1883),
     "mqtt_user":             _mqtt.get("username", ""),
@@ -187,6 +190,19 @@ STATE: dict[tuple[str, str], dict] = {}   # (circuit, msg) → {fields, raw, ts}
 LAST_DECISIONS: "OrderedDict[float, dict]" = OrderedDict()
 OPTIMIZER_ENABLED = CONF["optimize_flow_temp"]
 HEALTH = {"ok": True, "reasons": [], "since": time.time()}
+
+# ───────────────────────────────────────────────────────────────────────────
+# Control mode — read-only by default. Every actual boiler write (manual
+# setpoint/mode changes AND the autonomous optimizer) is gated behind an
+# explicit, time-boxed "full control" session the user has to opt into and
+# keep periodically re-confirming. See genia_air/README.md "Safety model".
+# ───────────────────────────────────────────────────────────────────────────
+
+CONTROL_LOCK = threading.Lock()
+CONTROL_ENABLED = False          # False = read-only (default)
+CONTROL_EXPIRES_AT: float | None = None   # session hard expiry (epoch seconds)
+CONTROL_LAST_ACK_AT: float | None = None  # last "still looks right" confirmation
+CONTROL_SNAPSHOT: dict | None = None      # writable values as they were before this session
 
 # (circuit, msg) entries the addon cares about. Drives the initial sync and
 # the "Diagnostic" tab. Case must match what ebusd publishes (case rule:
@@ -220,6 +236,24 @@ SUBSCRIBED_MSGS: list[tuple[str, str]] = [
     ("ctls2", "MaintenanceDue"),
     ("ctls2", "GlobalSystemOff"),
     ("ctls2", "YieldTotal"),
+    ("ctls2", "Hc1MaxFlowTempDesired"),
+    ("ctls2", "Hc1MinFlowTempDesired"),
+    ("ctls2", "Hc1SummerTempLimit"),
+    ("ctls2", "ContinuosHeating"),
+]
+
+# Every (circuit, msg) a full-control session can write to, across the manual
+# API (/api/write, /api/mode, /api/setpoint) and the optimizer. This is what
+# gets snapshotted before the first write of a session, and restored when the
+# session ends (expiry or unacknowledged) — see control_snapshot()/control_restore().
+WRITABLE_MSGS: list[tuple[str, str]] = [
+    ("ctls2", "z1ManualTemp"),
+    ("ctls2", "z1DayTemp"),
+    ("ctls2", "z1NightTemp"),
+    ("ctls2", "z1HolidayTemp"),
+    ("ctls2", "z1CoolingTemp"),
+    ("ctls2", "z1OpMode"),
+    ("ctls2", "z1OpModeCooling"),
     ("ctls2", "Hc1MaxFlowTempDesired"),
     ("ctls2", "Hc1MinFlowTempDesired"),
     ("ctls2", "Hc1SummerTempLimit"),
@@ -872,6 +906,213 @@ def task_snapshot_history() -> None:
             db_insert_snapshot(ts, series, float(v))
 
 
+WRITABLE_FIELD_KEY: dict[str, tuple[str, type]] = {
+    "z1ManualTemp": ("tempv", float), "z1DayTemp": ("tempv", float),
+    "z1NightTemp": ("tempv", float), "z1HolidayTemp": ("tempv", float),
+    "z1CoolingTemp": ("tempv", float),
+    "Hc1MaxFlowTempDesired": ("tempv", float), "Hc1MinFlowTempDesired": ("tempv", float),
+    "Hc1SummerTempLimit": ("tempv", float), "ContinuosHeating": ("tempv", float),
+    "z1OpMode": ("opmode", str), "z1OpModeCooling": ("opmode", str),
+}
+
+
+CONTROL_SNAPSHOT_PATH = DATA / "control_snapshot.json"
+
+
+def control_is_active() -> bool:
+    """True while a full-control session is live (enabled and not expired)."""
+    with CONTROL_LOCK:
+        if not CONTROL_ENABLED or CONTROL_EXPIRES_AT is None:
+            return False
+        return time.time() < CONTROL_EXPIRES_AT
+
+
+def control_snapshot() -> dict:
+    """Capture every writable value as it stands right now — the "initial
+    state" a later revert restores to. Every WRITABLE_MSGS key is always
+    present (value None if unknown yet, e.g. right after boot before the
+    initial bus sync) so callers can see exactly what won't be restorable,
+    rather than that gap being silently invisible."""
+    snap = {}
+    for circuit, msg in WRITABLE_MSGS:
+        key, cast = WRITABLE_FIELD_KEY[msg]
+        snap[msg] = {"circuit": circuit, "value": _field(circuit, msg, key, cast=cast)}
+    return snap
+
+
+def control_restore(snapshot: dict) -> None:
+    """Re-publish every snapshotted value that was actually known — an actual
+    restore, not just a stop. Fields whose value was None at snapshot time
+    (never read from the bus) can't be restored to anything meaningful and
+    are skipped."""
+    for msg, entry in (snapshot or {}).items():
+        if entry.get("value") is not None:
+            mqtt_publish_write(entry["circuit"], msg, entry["value"])
+
+
+def _save_control_snapshot(snapshot: dict | None) -> None:
+    """Persist (or clear) the pre-session baseline to disk so a crash/restart
+    mid-session doesn't lose it — the whole point of "revert restores the
+    real values" falls apart if the only copy lives in a global that a
+    restart wipes."""
+    try:
+        if snapshot:
+            CONTROL_SNAPSHOT_PATH.write_text(json.dumps(snapshot))
+        else:
+            CONTROL_SNAPSHOT_PATH.unlink(missing_ok=True)
+    except OSError as exc:
+        log.warning("Could not persist control snapshot: %s", exc)
+
+
+def control_recover_on_boot() -> None:
+    """Called once at startup. A snapshot file left on disk means the addon
+    was in full-control mode when it last stopped (crash, restart, update) —
+    we can't know if anyone was still watching, so the safe move is to
+    restore those values immediately and boot into read-only, same as any
+    other auto-revert."""
+    if not CONTROL_SNAPSHOT_PATH.exists():
+        return
+    try:
+        snapshot = json.loads(CONTROL_SNAPSHOT_PATH.read_text())
+    except (OSError, json.JSONDecodeError) as exc:
+        log.warning("Could not read leftover control snapshot, discarding: %s", exc)
+        CONTROL_SNAPSHOT_PATH.unlink(missing_ok=True)
+        return
+    log.warning("Found a control session snapshot from before restart — "
+                "restoring %d value(s) and booting read-only", len(snapshot))
+    control_restore(snapshot)
+    _save_control_snapshot(None)
+    db_log_decision("control_revert", "Sesión interrumpida por reinicio del addon",
+                     {"restored_fields": len(snapshot)})
+    _notify_ha(
+        "Genia Air: sesión de control interrumpida",
+        f"El addon se reinició mientras el control total estaba activo. Se han "
+        f"restaurado {len(snapshot)} valor(es) previos y se ha vuelto a modo solo-lectura.",
+    )
+
+
+def control_enable(session_minutes: float | None = None) -> dict:
+    """Start (or extend/renew) a full-control session. Snapshots current
+    state only on first entry, so renewing an active session doesn't
+    overwrite the original "before I touched anything" baseline."""
+    global CONTROL_ENABLED, CONTROL_EXPIRES_AT, CONTROL_LAST_ACK_AT, CONTROL_SNAPSHOT
+    minutes = session_minutes or CONF["control_session_min"]
+    now = time.time()
+    with CONTROL_LOCK:
+        if not CONTROL_ENABLED:
+            CONTROL_SNAPSHOT = control_snapshot()
+            _save_control_snapshot(CONTROL_SNAPSHOT)
+        CONTROL_ENABLED = True
+        CONTROL_EXPIRES_AT = now + minutes * 60
+        CONTROL_LAST_ACK_AT = now
+        known = sum(1 for v in (CONTROL_SNAPSHOT or {}).values() if v["value"] is not None)
+        total = len(CONTROL_SNAPSHOT or {})
+        expires_at = CONTROL_EXPIRES_AT
+    db_log_decision("control_enable", f"Full control enabled for {minutes:.0f}min",
+                     {"minutes": minutes, "snapshot_known": known, "snapshot_total": total})
+    log.warning("Full control ENABLED for %.0f minutes (baseline known for %d/%d field(s))",
+                minutes, known, total)
+    if known < total:
+        log.warning("%d field(s) have no known value yet — they won't be restorable on revert "
+                    "until the bus has reported them at least once", total - known)
+    return {"expires_at": expires_at, "snapshot_known": known, "snapshot_total": total}
+
+
+def control_ack() -> float:
+    """User confirmed the current values still make sense — resets the
+    unattended-for-too-long grace clock. Caller must check control_is_active()."""
+    global CONTROL_LAST_ACK_AT
+    with CONTROL_LOCK:
+        CONTROL_LAST_ACK_AT = time.time()
+        ack_at = CONTROL_LAST_ACK_AT
+    db_log_decision("control_ack", "User confirmed control values", {})
+    return ack_at
+
+
+def _finish_revert(snapshot: dict | None, reason: str) -> None:
+    """The I/O half of a revert (writes + logging + notify) — never called
+    while holding CONTROL_LOCK, since these are network calls."""
+    _save_control_snapshot(None)
+    if snapshot:
+        control_restore(snapshot)
+    restored = sum(1 for v in (snapshot or {}).values() if v["value"] is not None)
+    db_log_decision("control_revert", reason, {"restored_fields": restored})
+    log.warning("Full control REVERTED (%s) — restored %d value(s)", reason, restored)
+    _notify_ha(
+        "Genia Air: control total desactivado",
+        f"{reason}. Se ha vuelto a modo solo-lectura y se han restaurado los "
+        f"valores previos a la sesión ({restored} campo(s)).",
+    )
+
+
+def control_revert(reason: str) -> None:
+    """Explicit, unconditional end of the session (manual disable) — restore
+    the pre-session snapshot and flip back to read-only."""
+    global CONTROL_ENABLED, CONTROL_EXPIRES_AT, CONTROL_LAST_ACK_AT, CONTROL_SNAPSHOT
+    with CONTROL_LOCK:
+        snapshot, CONTROL_SNAPSHOT = CONTROL_SNAPSHOT, None
+        CONTROL_ENABLED = False
+        CONTROL_EXPIRES_AT = None
+        CONTROL_LAST_ACK_AT = None
+    _finish_revert(snapshot, reason)
+
+
+def task_control_watchdog() -> None:
+    """Runs every cycle: expire the session on hard timeout or stale ack.
+
+    The decide-and-clear-state step happens in ONE critical section so a
+    concurrent renewal (api_control_enable, e.g. the user re-confirming right
+    at the boundary) can't race this: either the renewal lands first and this
+    function then sees a fresh expiry/ack and does nothing, or this function
+    clears state first and the renewal that follows correctly starts a brand
+    new session — never "renew, then immediately get reverted anyway" using
+    a decision made before the renewal happened.
+    """
+    global CONTROL_ENABLED, CONTROL_EXPIRES_AT, CONTROL_LAST_ACK_AT, CONTROL_SNAPSHOT
+    with CONTROL_LOCK:
+        if not CONTROL_ENABLED:
+            return
+        now = time.time()
+        grace = CONF["control_ack_grace_min"] * 60
+        expired = CONTROL_EXPIRES_AT is not None and now >= CONTROL_EXPIRES_AT
+        stale = CONTROL_LAST_ACK_AT is not None and now - CONTROL_LAST_ACK_AT > grace
+        if not (expired or stale):
+            return
+        reason = ("Sesión de control total caducada" if expired
+                   else "No se confirmó a tiempo que los valores siguen teniendo sentido")
+        snapshot, CONTROL_SNAPSHOT = CONTROL_SNAPSHOT, None
+        CONTROL_ENABLED = False
+        CONTROL_EXPIRES_AT = None
+        CONTROL_LAST_ACK_AT = None
+    _finish_revert(snapshot, reason)
+
+
+def _notify_ha(title: str, message: str) -> None:
+    """Best-effort HA notification via the Supervisor's Core API proxy — reuses
+    SUPERVISOR_TOKEN (same one already used for MQTT credential lookup), no
+    extra auth/config needed. Logs and gives up silently on failure: a
+    notification failure must never be mistaken for a write failure."""
+    token = os.environ.get("SUPERVISOR_TOKEN") or os.environ.get("HASSIO_TOKEN") or ""
+    if not token:
+        log.warning("No SUPERVISOR_TOKEN — cannot send HA notification: %s", title)
+        return
+    service = CONF["control_notify_target"] or "notify.notify"
+    if "." not in service:
+        service = f"notify.{service}"
+    domain, _, svc = service.partition(".")
+    try:
+        r = requests.post(
+            f"http://supervisor/core/api/services/{domain}/{svc}",
+            headers={"Authorization": f"Bearer {token}"},
+            json={"title": title, "message": message},
+            timeout=8,
+        )
+        if r.status_code >= 300:
+            log.warning("HA notify %s → HTTP %s: %s", service, r.status_code, r.text[:200])
+    except Exception as exc:
+        log.warning("HA notify %s failed: %s", service, exc)
+
+
 def task_optimize() -> None:
     """The actual control loop.
 
@@ -886,26 +1127,32 @@ def task_optimize() -> None:
     """
     if not OPTIMIZER_ENABLED:
         return
+    # Full control gates every WRITE below, but not the ΔT anomaly check —
+    # that's pure alerting (HEALTH/db_log_decision), no actuation, and must
+    # keep working in the default read-only state or users lose monitoring
+    # for as long as they haven't opted into full control.
+    can_write = control_is_active()
     snap = collect_snapshot()
     actions: list[dict] = []
 
-    # --- safety enforcement on flow temps ---
-    if snap["max_flow_temp"] is not None and snap["max_flow_temp"] > CONF["max_flow_temp_safe"] + 0.1:
-        actions.append(_force_write_safe(
-            "ctls2", "Hc1MaxFlowTempDesired",
-            CONF["max_flow_temp_safe"],
-            f"max_flow_temp {snap['max_flow_temp']} > safe limit {CONF['max_flow_temp_safe']}",
-        ))
-    if snap["min_flow_temp"] is not None and snap["min_flow_temp"] < CONF["min_flow_temp_safe"] - 0.1:
-        actions.append(_force_write_safe(
-            "ctls2", "Hc1MinFlowTempDesired",
-            CONF["min_flow_temp_safe"],
-            f"min_flow_temp {snap['min_flow_temp']} < safe limit {CONF['min_flow_temp_safe']}",
-        ))
+    if can_write:
+        # --- safety enforcement on flow temps ---
+        if snap["max_flow_temp"] is not None and snap["max_flow_temp"] > CONF["max_flow_temp_safe"] + 0.1:
+            actions.append(_force_write_safe(
+                "ctls2", "Hc1MaxFlowTempDesired",
+                CONF["max_flow_temp_safe"],
+                f"max_flow_temp {snap['max_flow_temp']} > safe limit {CONF['max_flow_temp_safe']}",
+            ))
+        if snap["min_flow_temp"] is not None and snap["min_flow_temp"] < CONF["min_flow_temp_safe"] - 0.1:
+            actions.append(_force_write_safe(
+                "ctls2", "Hc1MinFlowTempDesired",
+                CONF["min_flow_temp_safe"],
+                f"min_flow_temp {snap['min_flow_temp']} < safe limit {CONF['min_flow_temp_safe']}",
+            ))
 
     # --- weather-compensated flow temp target ---
     out = snap["outside_temp"]
-    if out is not None and snap["hvac_mode"] == "heat":
+    if can_write and out is not None and snap["hvac_mode"] == "heat":
         # Simple linear curve: at -10°C → 35; at +15°C → 25. Clamped.
         target = 30.0 - (out + 10) * (10.0 / 25.0)
         target = max(CONF["min_flow_temp_safe"] + 4, min(CONF["max_flow_temp_safe"], round(target, 1)))
@@ -919,7 +1166,7 @@ def task_optimize() -> None:
             )
             actions.append({"kind": "flow_curve", "to": target})
 
-    # --- delta-T anomaly alert (no actuation) ---
+    # --- delta-T anomaly alert (no actuation — always runs, even read-only) ---
     dt = snap["delta_t"]
     if dt is not None and snap["hvac_action"] == "heating":
         if abs(dt - CONF["target_delta_t"]) > 0.8:
@@ -930,7 +1177,7 @@ def task_optimize() -> None:
             db_log_decision("alert", reason, {"delta_t": dt, "target": CONF["target_delta_t"]})
 
     # --- summer/winter switchover ---
-    if out is not None:
+    if can_write and out is not None:
         if out > CONF["summer_temp_limit"] + 2 and snap["hvac_mode"] == "heat":
             actions.append({"kind": "season_switch", "to": "cool"})
             db_log_decision(
@@ -950,7 +1197,8 @@ def task_optimize() -> None:
             mqtt_publish_write("ctls2", "z1OpModeCooling", "off")
             mqtt_publish_write("ctls2", "z1OpMode", "auto")
 
-    log.info("optimize cycle: %d actions", len(actions))
+    log.info("optimize cycle: %d actions (writes %s)", len(actions),
+              "enabled" if can_write else "read-only")
 
 
 def _force_write_safe(circuit: str, msg: str, value, reason: str) -> dict:
@@ -1187,6 +1435,8 @@ def api_ebusd_action():
 
 @app.route("/api/write", methods=["POST"])
 def api_write():
+    if not control_is_active():
+        abort(403)
     body = request.get_json(force=True, silent=True) or {}
     circuit = body.get("circuit")
     msg = body.get("msg")
@@ -1208,6 +1458,8 @@ def api_write():
 
 @app.route("/api/mode", methods=["POST"])
 def api_mode():
+    if not control_is_active():
+        abort(403)
     mode = (request.get_json(force=True, silent=True) or {}).get("mode", "")
     if mode not in ("off", "heat", "cool", "auto"):
         abort(400)
@@ -1225,6 +1477,8 @@ def api_mode():
 
 @app.route("/api/setpoint", methods=["POST"])
 def api_setpoint():
+    if not control_is_active():
+        abort(403)
     body = request.get_json(force=True, silent=True) or {}
     target = float(body.get("target_c", 0))
     if not (5 <= target <= 30):
@@ -1244,6 +1498,46 @@ def api_optimizer():
     db_log_decision("user_optimizer", f"Optimizer = {OPTIMIZER_ENABLED}",
                     {"enabled": OPTIMIZER_ENABLED})
     return jsonify({"ok": True, "enabled": OPTIMIZER_ENABLED})
+
+
+@app.route("/api/control/status", methods=["GET"])
+def api_control_status():
+    active = control_is_active()
+    return jsonify({
+        "active": active,
+        "expires_at": CONTROL_EXPIRES_AT if active else None,
+        "last_ack_at": CONTROL_LAST_ACK_AT if active else None,
+        "ack_grace_minutes": CONF["control_ack_grace_min"],
+        "session_minutes": CONF["control_session_min"],
+    })
+
+
+@app.route("/api/control/enable", methods=["POST"])
+def api_control_enable():
+    body = request.get_json(force=True, silent=True) or {}
+    if not body.get("confirm"):
+        # Require the explicit "I understand" flag from the UI — this is not
+        # a UX nicety, it's the actual gate: no route accepts a bare enable.
+        abort(400)
+    user = (request.headers.get("X-Remote-User-Name")
+            or request.headers.get("X-Remote-User-Id", "unknown"))
+    result = control_enable()
+    log.warning("Full control enabled by user %s", user[:8])
+    return jsonify({"ok": True, **result})
+
+
+@app.route("/api/control/disable", methods=["POST"])
+def api_control_disable():
+    if control_is_active():
+        control_revert("Control total desactivado manualmente por el usuario")
+    return jsonify({"ok": True})
+
+
+@app.route("/api/control/ack", methods=["POST"])
+def api_control_ack():
+    if not control_is_active():
+        abort(409)
+    return jsonify({"ok": True, "last_ack_at": control_ack()})
 
 
 @app.route("/api/force_read", methods=["POST"])
@@ -1449,6 +1743,30 @@ input:checked+.tslide:before{transform:translateX(20px);background:#0f172a}
 
 <!-- Controls -->
 <div id="t-controls" class="tab-content">
+  <div class="card" id="control-gate-card">
+    <div id="control-readonly" style="display:none">
+      <h2 style="margin-top:0">🔒 Solo lectura</h2>
+      <p class="sub">Los controles de abajo están desactivados. Nada se escribe en la caldera
+        hasta que actives el control total explícitamente, y esa sesión caduca sola.</p>
+      <label style="display:flex;gap:.5rem;align-items:flex-start;margin:.75rem 0">
+        <input type="checkbox" id="control-confirm-chk" style="margin-top:.2rem">
+        <span>Entiendo que esto va a controlar mi calefacción/refrigeración real, y me
+          comprometo a revisar que los valores tengan sentido cuando me lo pida la app.
+          Si no confirmo a tiempo, se revierte sola.</span>
+      </label>
+      <button class="btn btn-sm btn-g" id="control-enable-btn" onclick="enableControl()">
+        🔓 Activar control total</button>
+    </div>
+    <div id="control-active" style="display:none">
+      <h2 style="margin-top:0">🔓 Control total activo</h2>
+      <p class="sub">Caduca a las <span id="control-expires"></span> ·
+        última confirmación: <span id="control-last-ack"></span></p>
+      <div class="actions">
+        <button class="btn btn-sm btn-g" onclick="ackControl()">✅ Los valores tienen sentido</button>
+        <button class="btn btn-sm" onclick="disableControl()">🔒 Volver a solo lectura</button>
+      </div>
+    </div>
+  </div>
   <div class="card">
     <h2 style="margin-top:0">HVAC mode</h2>
     <div class="actions">
@@ -1526,7 +1844,7 @@ document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>{
   $("t-"+b.dataset.tab).classList.add("active");
   if(b.dataset.tab==="charts") loadCharts();
   if(b.dataset.tab==="diag") loadDiag();
-  if(b.dataset.tab==="controls") buildSliders();
+  if(b.dataset.tab==="controls") { buildSliders(); loadControlStatus(); }
   if(b.dataset.tab==="optimizer") loadDecisions();
 });
 
@@ -1659,6 +1977,39 @@ async function buildSliders(){
   render($("setp-sliders"), SETPOINT_DEFS);
   render($("flow-sliders"), FLOW_DEFS);
 }
+
+// Control mode — read-only gate
+let CONTROL_ACTIVE = false;
+async function loadControlStatus(){
+  try{
+    const s = await api("/api/control/status");
+    CONTROL_ACTIVE = s.active;
+    $("control-readonly").style.display = s.active ? "none" : "";
+    $("control-active").style.display = s.active ? "" : "none";
+    if(s.active){
+      $("control-expires").textContent = new Date(s.expires_at*1000).toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"});
+      $("control-last-ack").textContent = new Date(s.last_ack_at*1000).toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"});
+    }
+  } catch(e){ /* status polling failure isn't worth a toast */ }
+}
+async function enableControl(){
+  if(!$("control-confirm-chk").checked) return toast("Marca la casilla de confirmación primero","err");
+  try{
+    await api("/api/control/enable", {method:"POST", body:JSON.stringify({confirm:true})});
+    toast("Control total activado","ok");
+    $("control-confirm-chk").checked = false;
+    loadControlStatus();
+  } catch(e){ toast("Error: "+e.message,"err"); }
+}
+async function ackControl(){
+  try{ await api("/api/control/ack", {method:"POST"}); toast("Confirmado","ok"); loadControlStatus(); }
+  catch(e){ toast("Error: "+e.message,"err"); }
+}
+async function disableControl(){
+  try{ await api("/api/control/disable", {method:"POST"}); toast("Vuelto a solo lectura","ok"); loadControlStatus(); }
+  catch(e){ toast("Error: "+e.message,"err"); }
+}
+setInterval(()=>{ if(document.querySelector(".tab.active").dataset.tab==="controls") loadControlStatus(); }, 15000);
 
 // Optimizer
 async function toggleOptimizer(){
@@ -1868,6 +2219,8 @@ def boot() -> None:
                       run_date=datetime.utcnow() + timedelta(seconds=20))
     SCHEDULER.add_job(mqtt_post_connect_subs, "date",
                       run_date=datetime.utcnow() + timedelta(seconds=8))
+    SCHEDULER.add_job(control_recover_on_boot, "date",
+                      run_date=datetime.utcnow() + timedelta(seconds=9))
     SCHEDULER.add_job(task_initial_sync, "interval", minutes=20,
                       id="initial_sync_periodic")
     SCHEDULER.add_job(task_snapshot_history, "interval", minutes=1,
@@ -1880,6 +2233,8 @@ def boot() -> None:
                       id="publish_states")
     SCHEDULER.add_job(ebusd_watchdog, "interval", seconds=15,
                       id="ebusd_watchdog")
+    SCHEDULER.add_job(task_control_watchdog, "interval", seconds=30,
+                      id="control_watchdog")
     SCHEDULER.start()
     log.info("Scheduler started — ebusd PID=%s, initial sync in 20s",
              EBUSD_PROCESS.pid if EBUSD_PROCESS else "?")
@@ -1887,4 +2242,9 @@ def boot() -> None:
 
 if __name__ == "__main__":
     boot()
-    app.run(host="0.0.0.0", port=8099)
+    # threaded=True: without it, a slow synchronous request (e.g. /api/compat_report's
+    # raw ebusd TCP scan, up to ~8s) blocks every other request on the same
+    # single-threaded dev server — including /api/control/status polling, which
+    # matters now that the Controls tab depends on that polling for the
+    # session countdown/ack UI to stay responsive.
+    app.run(host="0.0.0.0", port=8099, threaded=True)

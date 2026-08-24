@@ -1,5 +1,39 @@
 # Changelog
 
+## 0.5.0 — 2026-08-24
+
+- **Read-only by default — full control is now a gated, time-boxed
+  session.** No write (manual setpoint/mode changes, nor the autonomous
+  optimizer) reaches the boiler until you explicitly enable full control
+  from the Controls tab. Sessions auto-expire (`control_session_minutes`,
+  default 60 min) and require periodic "still looks right" confirmation
+  (`control_ack_grace_minutes`, default 15 min) or they auto-revert —
+  restoring the exact pre-session values, not just stopping writes — and
+  send an HA notification explaining why. See README → *Safety model*.
+  **This is a behavior change**: the optimizer and manual controls no
+  longer act until you turn full control on at least once after updating.
+- New options: `control_session_minutes`, `control_ack_grace_minutes`,
+  `control_notify_target`.
+- New endpoints: `GET /api/control/status`, `POST /api/control/enable`,
+  `POST /api/control/ack`, `POST /api/control/disable`. `/api/write`,
+  `/api/mode`, `/api/setpoint` now return `403` outside an active session.
+- The pre-session snapshot now persists to `/data/control_snapshot.json`
+  and is restored on boot if the addon restarts mid-session (crash, update)
+  — a full-control session no longer silently loses its restore baseline
+  if the addon goes down while active.
+- Fixed: the ΔT anomaly alert (pure monitoring, no actuation) was
+  accidentally gated behind the same read-only check as actual writes —
+  it now always runs regardless of control-mode state.
+- Fixed: a rare race where the watchdog could revert a session that had
+  just been renewed at the expiry boundary.
+- `app.run(..., threaded=True)` — the Diagnostics tab's ebusd scan could
+  block the whole UI, including control-session polling, for several
+  seconds on a single-threaded dev server.
+- Verified: 16 new unit tests, full regression suite green (38/38), and a
+  real build+install+start against a live HAOS 18.2 Supervisor (VM 120,
+  see `INFRA/servers.md`). Live round-trip against real eBUS hardware is
+  pending a power-cycle of the test adapter — see README → *Safety model*.
+
 ## 0.4.0 — 2026-08-18
 
 - **Hardware compatibility check.** Diagnostics now shows every device

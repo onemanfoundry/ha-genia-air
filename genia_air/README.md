@@ -71,6 +71,50 @@ adapter that exposes the bus on a TCP port (default `9999`).
 | `summer_temp_limit` | `19.0` °C | Heat ↔ cool seasonal switchover pivot |
 | `optimize_cycle_minutes` | `5` | How often the optimizer evaluates |
 | `ebusd_log_level` | `notice` | `error`, `notice`, `info`, `debug` |
+| `control_session_minutes` | `60` | How long a full-control session lasts before auto-expiring — see [Safety model](#safety-model) |
+| `control_ack_grace_minutes` | `15` | How long a full-control session can go without a "still looks right" confirmation before auto-reverting |
+| `control_notify_target` | *(empty → `notify.notify`)* | HA notify service to call when a session auto-reverts, e.g. `notify.mobile_app_myphone` |
+
+## Safety model
+
+**Read-only by default.** Nothing — not a manual setpoint change, not the
+HVAC mode buttons, not the autonomous optimizer — writes to the boiler until
+you explicitly turn on **full control** from the Controls tab (you have to
+tick "I understand this will control my real heating system" first; there's
+no bare on-switch).
+
+**Sessions are bounded and self-healing, not "on forever":**
+- A session auto-expires after `control_session_minutes` regardless of
+  anything else.
+- While active, the app periodically needs you to confirm the current values
+  still make sense ("✅ Los valores tienen sentido" in the Controls tab). Go
+  quiet for longer than `control_ack_grace_minutes` and it reverts on its
+  own — this is the actual safety net, not the hard expiry, since it catches
+  "I left and forgot about this" faster than a 60-minute timer would.
+- **Reverting is a real restore, not just "stop writing."** The moment you
+  enable full control, the add-on snapshots every writable value (zone
+  setpoints, HVAC mode, flow-temp limits) as they stood *before* the
+  session. On expiry, a stale ack, or clicking "🔒 Volver a solo lectura"
+  yourself, those exact values get re-published — your boiler ends up back
+  where it started, not wherever the last write happened to leave it.
+- Every auto-revert calls a Home Assistant `notify.*` service (configurable
+  via `control_notify_target`) so you get a push/notification explaining
+  what happened and why.
+
+This applies uniformly — a manual slider drag and the optimizer's automatic
+weather-compensated writes share the same session and the same gate. There's
+no separate "let the optimizer run forever without asking" mode; if you want
+the optimizer active for days, you re-confirm every `control_ack_grace_minutes`
+like anything else.
+
+**Validated so far:** the full gating/snapshot/expiry/revert logic has 16
+unit tests (`tests/test_control_mode.py`), and the addon has been built and
+started end-to-end on a real HAOS Supervisor (see `INFRA/servers.md` VM 120)
+against a placeholder eBUS device. A live round-trip against a real unit
+(enable control → write a real setpoint → let it auto-revert → confirm the
+boiler actually reports the original value again) is still pending — the
+eBUS Adapter Shield used for that test needs a power-cycle first (its TCP
+port was refusing new connections, unrelated to this addon).
 
 ## Compatibility
 

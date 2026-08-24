@@ -1,5 +1,5 @@
 name: Vaillant Genia Air
-version: "0.4.0"
+version: "0.5.0"
 slug: genia_air
 description: Standalone control & optimization for Vaillant Genia Air — bundled ebusd daemon, dashboard, history
 url: https://github.com/onemanfoundry/ha-genia-air
@@ -31,6 +31,9 @@ options:
   optimize_cycle_minutes: 5
   ebusd_log_level: "notice"
   log_level: info
+  control_session_minutes: 60
+  control_ack_grace_minutes: 15
+  control_notify_target: ""
 schema:
   ebus_device: str
   topic_prefix: str
@@ -43,3 +46,6 @@ schema:
   optimize_cycle_minutes: int(1,60)
   ebusd_log_level: list(error|notice|info|debug)
   log_level: list(debug|info|warning|error)
+  control_session_minutes: int(5,240)
+  control_ack_grace_minutes: int(5,120)
+  control_notify_target: str
