@@ -90,14 +90,19 @@ dropped in line with Home Assistant 2025.12 deprecating them.
 | `ARCHITECTURE.md` | Design notes & rationale |
 | `tests/` | Regression suite (run in CI) |
 | `_reference/` | Archived HACS custom integration, kept only as eBUS-parser reference |
+| `TROUBLESHOOTING.md` | Diagnosing frozen telemetry and a wedged eBUS adapter |
 
 ## Status
 
-v0.4.0. Optimizer is deterministic and single-zone focused (ML and
-multi-zone are on the roadmap). New in this release: the hardware
-compatibility check and anonymized GitHub reporting flow described above —
-see [`genia_air/CHANGELOG.md`](genia_air/CHANGELOG.md) for the full history.
-Contributions and issue reports welcome.
+v0.7.0. Optimizer is deterministic and single-zone focused (ML and
+multi-zone are on the roadmap). Recent releases hardened the write path:
+read-only by default with a gated, time-boxed control mode (0.5.0), a
+fail-closed safe mode with input validation (0.6.0), fail-closed on stale
+telemetry (0.6.1), and `simulate_hardware` — the whole add-on, optimizer and
+full-control round-trip included, running against a synthetic bus with no
+adapter required (0.7.0). See [`genia_air/CHANGELOG.md`](genia_air/CHANGELOG.md)
+for the full history, and [`TROUBLESHOOTING.md`](TROUBLESHOOTING.md) if your
+telemetry has gone quiet. Contributions and issue reports welcome.
 
 ## License
 

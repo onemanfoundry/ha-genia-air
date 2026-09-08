@@ -14,3 +14,9 @@ dist/
 .DS_Store
 .idea/
 .vscode/
+
+# Local-only: real-installation notes, never published
+STATUS.md
+memory/
+sesiones/
+*.mp4
