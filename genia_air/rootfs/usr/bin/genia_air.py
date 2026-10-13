@@ -35,7 +35,7 @@ from flask import Flask, abort, jsonify, request
 # Config & logging
 # ───────────────────────────────────────────────────────────────────────────
 
-VERSION = "0.7.0"
+VERSION = "0.7.1"
 
 
 def _load_options() -> dict:
@@ -1131,12 +1131,12 @@ def control_recover_on_boot() -> None:
                 "restoring %d value(s) and booting read-only", len(snapshot))
     control_restore(snapshot)
     _save_control_snapshot(None)
-    db_log_decision("control_revert", "Sesión interrumpida por reinicio del addon",
+    db_log_decision("control_revert", "Session interrupted by addon restart",
                      {"restored_fields": len(snapshot)})
     _notify_ha(
-        "Genia Air: sesión de control interrumpida",
-        f"El addon se reinició mientras el control total estaba activo. Se han "
-        f"restaurado {len(snapshot)} valor(es) previos y se ha vuelto a modo solo-lectura.",
+        "Genia Air: control session interrupted",
+        f"The addon restarted while full control was active. Restored "
+        f"{len(snapshot)} previous value(s) and went back to read-only mode.",
     )
 
 
@@ -1188,9 +1188,9 @@ def _finish_revert(snapshot: dict | None, reason: str) -> None:
     db_log_decision("control_revert", reason, {"restored_fields": restored})
     log.warning("Full control REVERTED (%s) — restored %d value(s)", reason, restored)
     _notify_ha(
-        "Genia Air: control total desactivado",
-        f"{reason}. Se ha vuelto a modo solo-lectura y se han restaurado los "
-        f"valores previos a la sesión ({restored} campo(s)).",
+        "Genia Air: full control disabled",
+        f"{reason}. Went back to read-only mode and restored the "
+        f"pre-session values ({restored} field(s)).",
     )
 
 
@@ -1240,12 +1240,12 @@ def task_control_watchdog() -> None:
         if not (expired or stale or unhealthy):
             return
         if unhealthy:
-            reason = "Modo seguro: " + (", ".join(
-                r for r, cond in (("ebusd caído", ebusd_dead), ("MQTT desconectado", mqtt_down),
-                                   ("telemetría congelada", data_stale)) if cond))
+            reason = "Safe mode: " + (", ".join(
+                r for r, cond in (("ebusd down", ebusd_dead), ("MQTT disconnected", mqtt_down),
+                                   ("telemetry frozen", data_stale)) if cond))
         else:
-            reason = ("Sesión de control total caducada" if expired
-                       else "No se confirmó a tiempo que los valores siguen teniendo sentido")
+            reason = ("Full-control session expired" if expired
+                       else "Values were not confirmed as still sensible in time")
         snapshot, CONTROL_SNAPSHOT = CONTROL_SNAPSHOT, None
         CONTROL_ENABLED = False
         CONTROL_EXPIRES_AT = None
@@ -1741,7 +1741,7 @@ def api_control_enable():
 @app.route("/api/control/disable", methods=["POST"])
 def api_control_disable():
     if control_is_active():
-        control_revert("Control total desactivado manualmente por el usuario")
+        control_revert("Full control disabled manually by the user")
     return jsonify({"ok": True})
 
 
@@ -1957,25 +1957,25 @@ input:checked+.tslide:before{transform:translateX(20px);background:#0f172a}
 <div id="t-controls" class="tab-content">
   <div class="card" id="control-gate-card">
     <div id="control-readonly" style="display:none">
-      <h2 style="margin-top:0">🔒 Solo lectura</h2>
-      <p class="sub">Los controles de abajo están desactivados. Nada se escribe en la caldera
-        hasta que actives el control total explícitamente, y esa sesión caduca sola.</p>
+      <h2 style="margin-top:0">🔒 Read-only</h2>
+      <p class="sub">The controls below are disabled. Nothing is written to the heat pump
+        until you explicitly enable full control, and that session expires on its own.</p>
       <label style="display:flex;gap:.5rem;align-items:flex-start;margin:.75rem 0">
         <input type="checkbox" id="control-confirm-chk" style="margin-top:.2rem">
-        <span>Entiendo que esto va a controlar mi calefacción/refrigeración real, y me
-          comprometo a revisar que los valores tengan sentido cuando me lo pida la app.
-          Si no confirmo a tiempo, se revierte sola.</span>
+        <span>I understand this will control my real heating/cooling system, and I
+          commit to checking that the values make sense when the app asks me to.
+          If I don't confirm in time, it reverts on its own.</span>
       </label>
       <button class="btn btn-sm btn-g" id="control-enable-btn" onclick="enableControl()">
-        🔓 Activar control total</button>
+        🔓 Enable full control</button>
     </div>
     <div id="control-active" style="display:none">
-      <h2 style="margin-top:0">🔓 Control total activo</h2>
-      <p class="sub">Caduca a las <span id="control-expires"></span> ·
-        última confirmación: <span id="control-last-ack"></span></p>
+      <h2 style="margin-top:0">🔓 Full control active</h2>
+      <p class="sub">Expires at <span id="control-expires"></span> ·
+        last confirmation: <span id="control-last-ack"></span></p>
       <div class="actions">
-        <button class="btn btn-sm btn-g" onclick="ackControl()">✅ Los valores tienen sentido</button>
-        <button class="btn btn-sm" onclick="disableControl()">🔒 Volver a solo lectura</button>
+        <button class="btn btn-sm btn-g" onclick="ackControl()">✅ Values look right</button>
+        <button class="btn btn-sm" onclick="disableControl()">🔒 Back to read-only</button>
       </div>
     </div>
   </div>
@@ -2205,20 +2205,20 @@ async function loadControlStatus(){
   } catch(e){ /* status polling failure isn't worth a toast */ }
 }
 async function enableControl(){
-  if(!$("control-confirm-chk").checked) return toast("Marca la casilla de confirmación primero","err");
+  if(!$("control-confirm-chk").checked) return toast("Tick the confirmation checkbox first","err");
   try{
     await api("/api/control/enable", {method:"POST", body:JSON.stringify({confirm:true})});
-    toast("Control total activado","ok");
+    toast("Full control enabled","ok");
     $("control-confirm-chk").checked = false;
     loadControlStatus();
   } catch(e){ toast("Error: "+e.message,"err"); }
 }
 async function ackControl(){
-  try{ await api("/api/control/ack", {method:"POST"}); toast("Confirmado","ok"); loadControlStatus(); }
+  try{ await api("/api/control/ack", {method:"POST"}); toast("Confirmed","ok"); loadControlStatus(); }
   catch(e){ toast("Error: "+e.message,"err"); }
 }
 async function disableControl(){
-  try{ await api("/api/control/disable", {method:"POST"}); toast("Vuelto a solo lectura","ok"); loadControlStatus(); }
+  try{ await api("/api/control/disable", {method:"POST"}); toast("Back to read-only","ok"); loadControlStatus(); }
   catch(e){ toast("Error: "+e.message,"err"); }
 }
 setInterval(()=>{ if(document.querySelector(".tab.active").dataset.tab==="controls") loadControlStatus(); }, 15000);

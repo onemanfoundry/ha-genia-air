@@ -152,14 +152,14 @@ no bare on-switch).
 - A session auto-expires after `control_session_minutes` regardless of
   anything else.
 - While active, the app periodically needs you to confirm the current values
-  still make sense ("✅ Los valores tienen sentido" in the Controls tab). Go
+  still make sense ("✅ Values look right" in the Controls tab). Go
   quiet for longer than `control_ack_grace_minutes` and it reverts on its
   own — this is the actual safety net, not the hard expiry, since it catches
   "I left and forgot about this" faster than a 60-minute timer would.
 - **Reverting is a real restore, not just "stop writing."** The moment you
   enable full control, the add-on snapshots every writable value (zone
   setpoints, HVAC mode, flow-temp limits) as they stood *before* the
-  session. On expiry, a stale ack, or clicking "🔒 Volver a solo lectura"
+  session. On expiry, a stale ack, or clicking "🔒 Back to read-only"
   yourself, those exact values get re-published — your boiler ends up back
   where it started, not wherever the last write happened to leave it.
 - Every auto-revert calls a Home Assistant `notify.*` service (configurable

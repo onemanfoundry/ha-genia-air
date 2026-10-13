@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.7.1 — 2026-10-14
+
+- **UI and notifications are now English-only.** The Controls tab
+  read-only/full-control gate, its toasts, the revert reasons logged to the
+  decision history and the Home Assistant notifications sent on auto-revert
+  were still in Spanish. Button labels changed accordingly:
+  "✅ Values look right" and "🔒 Back to read-only".
+- `tests/validate_repo.py` now fails CI if Spanish-only characters creep
+  back into `genia_air.py`.
+
 ## 0.7.0 — 2026-08-24
 
 - **Simulate mode** (`simulate_hardware: true`): run the entire addon —

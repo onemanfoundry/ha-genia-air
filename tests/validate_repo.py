@@ -3,7 +3,9 @@
 
 Checks:
   * the add-on / repository YAML files parse,
-  * config.yaml `version` matches the VERSION constant in genia_air.py.
+  * config.yaml `version` matches the VERSION constant in genia_air.py,
+  * genia_air.py carries no Spanish-only characters (the UI and HA
+    notifications are English-only; this catches leftover strings).
 
 Exit non-zero on any failure.
 """
@@ -36,6 +38,12 @@ def main() -> int:
         print(f"OK   version in sync: {cfg_version}")
     else:
         errors.append(f"version mismatch: config.yaml={cfg_version} genia_air.py={src_version}")
+
+    es_lines = [n for n, line in enumerate(src.splitlines(), 1) if re.search(r"[áéíóúñÁÉÍÓÚÑ¿¡]", line)]
+    if es_lines:
+        errors.append(f"non-English characters in genia_air.py at lines {es_lines}")
+    else:
+        print("OK   genia_air.py is English-only")
 
     if errors:
         print("\nFAIL:")

@@ -366,7 +366,7 @@ def test_watchdog_reverts_on_stale_telemetry(mod, _clean_state):
     mod.task_control_watchdog()
 
     assert mod.control_is_active() is False
-    assert "congelada" in _clean_state["notifications"][0][1]
+    assert "frozen" in _clean_state["notifications"][0][1]
 
 
 def test_watchdog_tolerates_data_fresher_than_the_stale_threshold(mod, _clean_state):
