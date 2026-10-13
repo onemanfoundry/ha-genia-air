@@ -3,8 +3,8 @@
 > **This is a standalone Home Assistant Add-on (a Docker container with its
 > own UI, reachable via ingress), not a HACS custom integration.** There is
 > no `custom_components/` entry, no `config_flow`, no native `climate`
-> entity to add — you install it from Settings → Add-ons like any other
-> add-on, and it talks back to Home Assistant only via MQTT Discovery (a
+> entity to add — you install it from Settings → Apps (called *Add-ons*
+> before Home Assistant 2026) like any other app, and it talks back to Home Assistant only via MQTT Discovery (a
 > handful of read-only entities for automations). If you were expecting a
 > HACS integration, this isn't that — see [Architecture](#architecture-in-one-paragraph)
 > for why.
@@ -62,10 +62,10 @@ network or USB. Most users have a network-attached
 [eBUS Adapter Shield 3](https://adapter.ebusd.eu/) or an ESP-based
 adapter that exposes the bus on a TCP port (default `9999`).
 
-1. Install the **Mosquitto broker** add-on (Settings → Add-ons → Add-on
-   Store) if you don't already have an MQTT broker — this add-on needs one.
+1. Install the **Mosquitto broker** app (Settings → Apps → Install app)
+   if you don't already have an MQTT broker — this add-on needs one.
 2. Connect/power your eBUS adapter and note its IP (or USB device path).
-3. **Settings → Add-ons → Add-on Store → ⋯ → Repositories**, add
+3. **Settings → Apps → Install app → ⋮ → Repositories**, add
    `https://github.com/onemanfoundry/ha-genia-air`.
 4. Install **Vaillant Genia Air**.
 5. Set `ebus_device` in the configuration tab to **your** adapter (the

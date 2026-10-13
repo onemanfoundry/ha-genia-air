@@ -106,7 +106,7 @@ by whether the *moving* values move, not by an entity count.
 ## Prevention: turn off `auto_update` for the add-on
 
 Supervisor's automatic add-on update is what kills ebusd mid-connection in the
-first place. In *Settings → Add-ons → Vaillant Genia Air*, switch **Auto update**
+first place. In *Settings → Apps → Vaillant Genia Air*, switch **Auto update**
 off and update deliberately instead. The add-on being a few days behind is a much
 smaller problem than eighteen hours of silently stale telemetry.
 
