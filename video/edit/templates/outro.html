@@ -1,0 +1,15 @@
+<!doctype html><meta charset="utf-8"><link rel="stylesheet" href="base.css"><script src="common.js"></script>
+<style>
+  .box { position:absolute; left:50%; top:46%; transform:translate(-50%,-50%); text-align:center; width:1600px; }
+  img { width:360px; border-radius:22px; animation-name:pop; animation-duration:.7s; }
+  h1 { font-size:68px; font-weight:800; margin-top:40px; animation-name:fadeUp; animation-duration:.6s; }
+  h2 { font-size:38px; color:var(--muted); font-weight:500; margin-top:14px; animation-name:fadeUp; animation-duration:.6s; }
+  .url { display:inline-block; margin-top:46px; padding:20px 38px; border-radius:18px; background:#0e2a44; border:2px solid #1e4a72;
+         font-size:48px; color:var(--accent); animation-name:pop; animation-duration:.6s; }
+  .help { font-size:36px; margin-top:34px; color:#fbbf24; font-weight:600; animation-name:fadeUp; animation-duration:.6s; }
+</style>
+<body class="solid"><div class="box">
+  <img class="anim" data-at="0.1" id="logo"><h1 class="anim" data-at="0.4" data-t="outro.title"></h1><h2 class="anim" data-at="0.7" data-t="outro.sub"></h2>
+  <div class="url mono anim" data-at="cues.0">github.com/onemanfoundry/ha-genia-air</div>
+  <div class="help anim" data-at="cues.1" data-t="outro.help"></div></div>
+<script>document.addEventListener("DOMContentLoaded", () => { const l = (window.CTX||{}).logo; if (l) document.getElementById("logo").src = l; else document.getElementById("logo").style.display="none"; });</script>

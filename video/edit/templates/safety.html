@@ -1,0 +1,15 @@
+<!doctype html><meta charset="utf-8"><link rel="stylesheet" href="base.css"><script src="common.js"></script>
+<style>
+  .box { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:1180px; }
+  .head { display:flex; align-items:center; gap:30px; margin-bottom:46px; animation-name:fadeUp; animation-duration:.6s; }
+  .head svg { width:120px; height:120px; flex:none; }
+  .head h1 { font-size:76px; font-weight:800; color:#fbbf24; }
+  .row { display:flex; align-items:center; gap:26px; font-size:46px; font-weight:600; margin:26px 0 0 12px; animation-name:fadeUp; animation-duration:.5s; }
+  .row b { flex:none; width:58px; height:58px; border-radius:50%; background:#3b2a07; color:#fbbf24; display:grid; place-items:center; font-size:32px; }
+</style>
+<body class="solid"><div class="box">
+  <div class="head anim" data-at="0.1"><svg viewBox="0 0 120 120"><path d="M60 8 L114 106 H6 Z" fill="#fbbf24"/><rect x="54" y="40" width="12" height="38" rx="5" fill="#0b1220"/><circle cx="60" cy="90" r="7" fill="#0b1220"/></svg><h1 data-t="safety.title"></h1></div>
+  <div class="row anim" data-at="cues.0"><b>1</b><span data-t="safety.l1"></span></div>
+  <div class="row anim" data-at="cues.1"><b>2</b><span data-t="safety.l2"></span></div>
+  <div class="row anim" data-at="cues.2"><b>3</b><span data-t="safety.l3"></span></div>
+</div>

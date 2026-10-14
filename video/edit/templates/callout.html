@@ -1,0 +1,18 @@
+<!doctype html><meta charset="utf-8"><link rel="stylesheet" href="base.css"><script src="common.js"></script>
+<style>
+  .box { position:absolute; border:7px solid var(--orange); border-radius:14px; box-shadow:0 0 0 9999px rgba(0,0,0,.35), 0 0 28px rgba(255,138,0,.7);
+         animation-name:pop; animation-duration:.6s; }
+  .tag { position:absolute; padding:14px 26px; border-radius:14px; background:var(--orange); color:#111; font-size:42px; font-weight:800;
+         animation-name:fadeUp; animation-duration:.5s; white-space:nowrap; }
+  .sub { position:absolute; padding:12px 24px; border-radius:12px; background:rgba(11,18,32,.9); font-size:36px; font-weight:600;
+         animation-name:fadeUp; animation-duration:.5s; white-space:nowrap; }
+</style>
+<body class="clear"><div class="box anim" id="box" data-at="at"></div><div class="tag anim" id="tag" data-at="at"></div><div class="sub anim" id="sub" data-at="at2"></div>
+<script>document.addEventListener("DOMContentLoaded", () => {
+  const C = window.CTX || {}, [x, y, w, h] = C.rect || [0, 0, 0, 0];
+  Object.assign(document.getElementById("box").style, {left: x + "px", top: y + "px", width: w + "px", height: h + "px"});
+  const tag = document.getElementById("tag"); tag.textContent = C.text || "";
+  Object.assign(tag.style, {left: (x + w + 30) + "px", top: (y + 10) + "px"});
+  const sub = document.getElementById("sub"); sub.textContent = C.sub || ""; if (!C.sub) sub.style.display = "none";
+  Object.assign(sub.style, {left: (x + w + 30) + "px", top: (y + 100) + "px"});
+});</script>

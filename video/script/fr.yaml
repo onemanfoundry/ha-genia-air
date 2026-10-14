@@ -1,0 +1,68 @@
+lang: fr
+scenes:
+  hook_short:
+  - Votre pompe à chaleur Vaillant Genia Air, entièrement intégrée à Home Assistant.
+  - Rendement en direct, historique complet et pilotage sécurisé. Tout en local, sans cloud.
+  intro: []
+  requirements:
+  - Voici ce qu'il vous faut.
+  - Votre pompe à chaleur communique par eBUS, un simple bus à deux fils dans le module hydraulique.
+  - Un adaptateur eBUS se branche sur ces deux fils et met le bus sur votre réseau.
+  - Et côté Home Assistant, il vous faut Home Assistant OS, avec son magasin d'applications, et un broker MQTT.
+  - C'est tout. Pas de compte cloud, et pas de passerelle supplémentaire du fabricant.
+  hook_long:
+  - Avant de l'installer, voici ce que vous allez obtenir.
+  - Chaque minute, l'application enregistre les températures de départ et de retour, le delta T, les puissances électrique et thermique, et le vrai COP de votre machine.
+  - Six heures, un jour, trois jours ou une semaine entière, le tout stocké en local sur votre Home Assistant.
+  - Un optimiseur intégré adapte la température de départ à la météo, bascule entre chauffage et rafraîchissement selon la saison, et vous prévient en cas de dérive.
+  - Et une page de diagnostic vous indique exactement quels appareils ont été trouvés sur le bus, et si votre unité a déjà été testée.
+  safety:
+  - Une remarque importante avant de toucher au câblage.
+  - Coupez l'alimentation de l'appareil, suivez votre notice d'installation, et en cas de doute, faites appel à un installateur qualifié.
+  ebusd_credit:
+  - Rien de tout cela n'existerait sans ebusd, le démon eBUS open source de John Baier.
+  - L'adaptateur eBUS utilisé dans cette vidéo vient du même projet.
+  - Si vous en avez besoin, achetez-le auprès des sources officielles indiquées sur adapter point ebusd point eu. Vous soutenez ainsi le projet sur lequel tout repose.
+  wiring:
+  - Ouvrez le capot du boîtier de commande du module hydraulique.
+  - Repérez le bornier eBUS. C'est un connecteur à deux fils, généralement marqué BUS.
+  - L'eBUS n'a pas de polarité, les deux fils peuvent donc être branchés dans n'importe quel sens.
+  - Branchez l'adaptateur, alimentez-le, et attendez que son voyant indique qu'il a trouvé le bus.
+  - Refermez le capot et notez l'adresse IP de l'adaptateur sur votre réseau. Nous en aurons besoin dans un instant.
+  mosquitto:
+  - Dans Home Assistant, Genia Air a besoin d'un broker MQTT.
+  - Si vous n'en avez pas encore, installez le broker officiel Mosquitto depuis le magasin d'applications et démarrez-le.
+  install:
+  - Ajoutez maintenant le dépôt Genia Air.
+  - Allez dans Paramètres, Applications, et cliquez sur Installer une application.
+  - Ouvrez le menu en haut à droite, choisissez Dépôts, collez l'adresse affichée à l'écran, puis cliquez sur Ajouter.
+  - Vaillant Genia Air apparaît maintenant dans le magasin d'applications. Ouvrez-la et cliquez sur Installer.
+  - Il inclut déjà ebusd et les définitions de messages Vaillant, il n'y a donc rien d'autre à installer.
+  configure:
+  - Ouvrez l'onglet Configuration.
+  - Dans e bus device, saisissez l'adresse de votre adaptateur. Pour un adaptateur réseau, c'est e n s, deux points, son adresse IP, deux points, neuf neuf neuf neuf.
+  - Les anciens adaptateurs utilisent e n h à la place, et pour un adaptateur USB, c'est simplement le chemin du périphérique.
+  - Les autres options peuvent garder leurs valeurs par défaut.
+  - Enregistrez, revenez à l'onglet Info, activez Afficher dans la barre latérale, puis cliquez sur Démarrer.
+  - Dans le journal, vous verrez ebusd se connecter au bus, et les messages de votre pompe à chaleur commencer à arriver.
+  first_look:
+  - Ouvrez Genia Air depuis la barre latérale, et allez directement à l'onglet Diagnostic.
+  - Vérifiez que votre unité de gestion et votre régulateur d'ambiance ont été détectés, et lisez le bandeau de compatibilité.
+  - Si votre matériel diffère de l'unité testée, le bouton Report on GitHub ouvre un rapport de compatibilité anonyme. Il ne contient jamais vos mesures ni vos informations réseau.
+  - Passez ensuite à la vue d'ensemble.
+  - Le delta T est l'écart entre l'eau de départ et l'eau de retour. C'est le moyen le plus rapide de voir comment se comporte votre installation.
+  - Et le COP indique combien de chaleur vous obtenez pour chaque unité d'électricité. Pour une pompe à chaleur air eau, entre deux et cinq, c'est normal.
+  control:
+  - Par défaut, l'application fonctionne en lecture seule. Rien n'est jamais écrit dans votre pompe à chaleur sans votre accord.
+  - Observez d'abord les mesures pendant un moment, et vérifiez qu'elles sont cohérentes.
+  - Quand vous êtes prêt, cochez la case de confirmation et activez le contrôle total.
+  - Une session de contrôle expire toujours d'elle-même, et l'application vous demande régulièrement de confirmer que les valeurs sont toujours correctes.
+  - Si vous ne répondez pas, ou si la liaison avec le bus est perdue, elle revient en arrière toute seule.
+  - Et revenir en arrière signifie une vraie restauration. Chaque valeur retrouve exactement son état d'avant la session.
+  more:
+  - Il y a encore beaucoup à découvrir. Les graphiques, le journal des décisions de l'optimiseur, et un appareil Home Assistant avec des entités pour vos propres automatisations.
+  outro:
+  - Pas encore d'adaptateur ? Activez simulate hardware, et essayez toute l'application avec des données de test réalistes.
+  - Le projet est open source et encore en bêta, testé pour l'instant sur une seule unité réelle.
+  - Si la vôtre est différente, votre rapport de compatibilité est la meilleure façon d'aider.
+  - Le lien est dans la description. Merci de votre attention.

@@ -1,0 +1,14 @@
+<!doctype html><meta charset="utf-8"><link rel="stylesheet" href="base.css"><script src="common.js"></script>
+<style>
+  .lt { position:absolute; padding:18px 30px; border-radius:16px; background:rgba(11,18,32,.88); border:2px solid var(--line);
+        font-size:40px; font-weight:600; animation-name:fadeUp; animation-duration:.5s; display:flex; gap:20px; align-items:center; }
+  .lt small { color:var(--muted); font-size:30px; font-weight:500; }
+  .lt .mono { color:var(--accent); }
+</style>
+<body class="clear"><div class="lt anim" id="lt" data-at="at"><small id="k"></small><span id="v"></span></div>
+<script>document.addEventListener("DOMContentLoaded", () => {
+  const C = window.CTX || {}, lt = document.getElementById("lt");
+  document.getElementById("k").textContent = C.key || ""; const v = document.getElementById("v"); v.textContent = C.text || "";
+  if (C.mono) v.className = "mono";
+  Object.assign(lt.style, C.pos || {left: "110px", bottom: "90px"});
+});</script>

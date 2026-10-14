@@ -1,0 +1,68 @@
+lang: nl
+scenes:
+  hook_short:
+  - Je Vaillant Genia Air warmtepomp, volledig in Home Assistant.
+  - Live rendement, volledige historie en veilige bediening. Alles lokaal, zonder cloud.
+  intro: []
+  requirements:
+  - Dit heb je nodig.
+  - Je warmtepomp communiceert via eBUS, een eenvoudige tweedraadsbus in het hydraulische station.
+  - Een eBUS-adapter sluit je aan op die twee draden, en die zet de bus op je netwerk.
+  - En in Home Assistant heb je Home Assistant OS nodig, met de app-store, en een MQTT-broker.
+  - Dat is alles. Geen cloudaccount en geen extra gateway van de fabrikant.
+  hook_long:
+  - Voordat we het installeren, laten we zien wat je krijgt.
+  - Elke minuut slaat de app de aanvoer- en retourtemperatuur op, de delta T, het elektrisch en thermisch vermogen, en de echte COP van je installatie.
+  - Zes uur, een dag, drie dagen of een hele week, alles lokaal opgeslagen in je Home Assistant.
+  - Een ingebouwde optimizer past de aanvoertemperatuur aan het weer aan, schakelt per seizoen tussen verwarmen en koelen, en waarschuwt je als er iets afwijkt.
+  - En een diagnosepagina laat precies zien welke apparaten op de bus zijn gevonden, en of jouw unit al getest is.
+  safety:
+  - Een belangrijke opmerking voordat je aan de bedrading begint.
+  - Schakel de stroom naar het toestel uit, volg je installatiehandleiding, en twijfel je, vraag dan een erkend installateur.
+  ebusd_credit:
+  - Niets hiervan zou bestaan zonder ebusd, de open source eBUS-daemon van John Baier.
+  - De eBUS-adapter in deze video komt uit hetzelfde project.
+  - Heb je er een nodig, koop hem dan via de officiële bronnen op adapter punt ebusd punt eu. Zo steun je het project waar dit allemaal op draait.
+  wiring:
+  - Open de kap van de regelkast van het hydraulische station.
+  - Zoek de eBUS-aansluiting. Dat is een tweepolige connector, meestal gemarkeerd met BUS.
+  - Bij eBUS maakt de polariteit niet uit, dus de twee draden mogen in willekeurige volgorde.
+  - Sluit de adapter aan, geef hem stroom, en wacht tot de status-LED laat zien dat hij de bus heeft gevonden.
+  - Sluit de kap en noteer het IP-adres van de adapter op je netwerk. Dat hebben we zo nodig.
+  mosquitto:
+  - In Home Assistant heeft Genia Air een MQTT-broker nodig.
+  - Heb je er nog geen, installeer dan de officiële Mosquitto broker uit de app-store en start hem.
+  install:
+  - Voeg nu de Genia Air repository toe.
+  - Ga naar Instellingen, Apps, en klik op Installeer een app.
+  - Open het menu rechtsboven, kies Repositories, plak het adres dat je in beeld ziet, en klik op Toevoegen.
+  - Vaillant Genia Air staat nu in de app-store. Open hem en klik op Installeren.
+  - ebusd en de Vaillant berichtdefinities zitten er al in, dus je hoeft verder niets te installeren.
+  configure:
+  - Open het tabblad Configuratie.
+  - Vul bij e bus device het adres van je adapter in. Voor een netwerkadapter is dat e n s, dubbele punt, het IP-adres, dubbele punt, negen negen negen negen.
+  - Oudere adapters gebruiken in plaats daarvan e n h, en bij een USB-adapter is het gewoon het apparaatpad.
+  - De overige opties kunnen op hun standaardwaarden blijven.
+  - Sla op, ga terug naar het tabblad Info, zet In zijbalk tonen aan, en klik op Starten.
+  - In het logboek zie je ebusd verbinding maken met de bus, en komen de eerste berichten van je warmtepomp binnen.
+  first_look:
+  - Open Genia Air in de zijbalk, en ga meteen naar het tabblad Diagnose.
+  - Controleer of je warmtemanagementunit en je ruimteregelaar zijn gevonden, en lees de compatibiliteitsmelding.
+  - Wijkt je hardware af van de geteste unit, dan opent de knop Report on GitHub een anoniem compatibiliteitsrapport. Daar staan nooit je meetwaarden of netwerkgegevens in.
+  - Ga daarna naar het overzicht.
+  - Delta T is het verschil tussen aanvoer- en retourwater. Zo zie je het snelst hoe je installatie zich gedraagt.
+  - En de COP is hoeveel warmte je krijgt per eenheid elektriciteit. Voor een lucht-water warmtepomp is twee tot vijf normaal.
+  control:
+  - Standaard werkt de app alleen-lezen. Er wordt nooit iets naar je warmtepomp geschreven tot jij het toestaat.
+  - Bekijk eerst een tijdje de meetwaarden, en controleer of ze kloppen.
+  - Ben je er klaar voor, vink dan het bevestigingsvakje aan en schakel volledige bediening in.
+  - Een bedieningssessie verloopt altijd vanzelf, en de app vraagt je regelmatig te bevestigen dat de waarden nog kloppen.
+  - Antwoord je niet, of valt de verbinding met de bus weg, dan zet hij alles zelf terug.
+  - En terugzetten betekent echt herstellen. Elke waarde gaat precies terug naar waar die voor de sessie stond.
+  more:
+  - Er valt nog meer te ontdekken. Grafieken, het beslissingslogboek van de optimizer, en een Home Assistant apparaat met entiteiten voor je eigen automatiseringen.
+  outro:
+  - Nog geen adapter? Zet simulate hardware aan, en probeer de hele app met realistische testgegevens.
+  - Het project is open source en nog in bèta, tot nu toe getest op één echte unit.
+  - Is die van jou anders, dan helpt jouw compatibiliteitsrapport het meest.
+  - De link staat in de beschrijving. Bedankt voor het kijken.

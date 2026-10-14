@@ -1,0 +1,102 @@
+# Master narration (English). Every other language is a translation of this
+# file with the same scene ids and the same number of lines per scene, so the
+# build can align audio to the same visual cues in every language.
+#
+# Each scene: id, visual (what is on screen, for the capture/edit stage),
+# lines (one TTS call per line; short sentences clone better).
+lang: en
+scenes:
+- id: hook_short
+  visual: Production Genia Air panel, Overview tab, live KPI cards (COP, ΔT, power) ticking.
+  lines:
+  - Your Vaillant Genia Air heat pump, fully inside Home Assistant.
+  - Live efficiency, full history, and safe control. All local, no cloud.
+- id: intro
+  visual: OMF intro clip (Intro audio.mp4 with regenerated music). No narration.
+  lines: []
+- id: requirements
+  visual: Animated diagram. Heat pump, hydraulic station, two-wire eBUS, adapter, LAN, Home Assistant plus Mosquitto.
+  lines:
+  - Here is what you need.
+  - Your heat pump talks over eBUS, a simple two-wire bus inside the hydraulic station.
+  - An eBUS adapter connects to those two wires and puts the bus on your network.
+  - And on the Home Assistant side, you need Home Assistant OS, with its app store, and an MQTT broker.
+  - That's it. No cloud account, and no extra gateway from the manufacturer.
+- id: hook_long
+  visual: Production panel. Charts tab at 7 days, temperatures, ΔT, electric versus thermal power, COP. Then Optimizer decisions, then Diagnostics compatibility banner.
+  lines:
+  - Before we install it, here is what you get.
+  - Every minute, the app records supply and return temperatures, delta T, electric and thermal power, and the real COP of your machine.
+  - Six hours, a day, three days or a full week, all stored locally on your Home Assistant.
+  - A built-in optimizer adjusts the flow temperature to the weather, switches between heating and cooling with the seasons, and warns you when something drifts.
+  - And a diagnostics page tells you exactly which devices it found on your bus, and whether your unit has been tested.
+- id: safety
+  visual: Text card. "Switch off the power. Check your installation manual. If in doubt, ask a qualified installer."
+  lines:
+  - One important note before touching any wiring.
+  - Switch off the power to the unit, follow your installation manual, and if you are not sure, ask a qualified installer.
+- id: ebusd_credit
+  visual: adapter.ebusd.eu page and the ebusd GitHub page. Lower third, "ebusd and eBUS adapter by John Baier (john30)".
+  lines:
+  - None of this would exist without ebusd, the open source eBUS daemon by John Baier.
+  - The eBUS adapter used in this video comes from the same project.
+  - If you need one, please buy it from the official sources listed at adapter dot ebusd dot eu. It supports the project everything here is built on.
+- id: wiring
+  visual: Hardware clips. Cover opening, zoom and arrow on the BUS terminal, adapter connected, green LED, cover closed.
+  lines:
+  - Open the cover of the hydraulic station's control box.
+  - Find the eBUS terminal. It is a two-wire connector, usually labelled BUS.
+  - eBUS does not care about polarity, so the two wires can go either way.
+  - Connect the adapter, power it, and wait for its status LED to show it has found the bus.
+  - Close the cover, and note the adapter's IP address on your network. We'll need it in a minute.
+- id: mosquitto
+  visual: Secondary HA (VM 120). Settings, Apps, Install app (App store), Mosquitto broker, Install, Start. Sped up.
+  lines:
+  - In Home Assistant, Genia Air needs an MQTT broker.
+  - If you don't have one yet, install the official Mosquitto broker from the app store, and start it.
+- id: install
+  visual: Settings, Apps, Install app, three-dot Menu, Repositories, paste the repo URL, Add. Then Vaillant Genia Air, Install.
+  lines:
+  - Now add the Genia Air repository.
+  - Go to Settings, Apps, and click Install app.
+  - Open the menu in the top right corner, choose Repositories, paste the address shown on screen, and click Add.
+  - Vaillant Genia Air now appears in the app store. Open it and click Install.
+  - It already includes ebusd and the Vaillant message definitions, so there is nothing else to install.
+- id: configure
+  visual: Configuration tab. ebus_device field set to ens:<adapter IP>:9999. Save. Info tab, Start. Log shows ebusd connected and messages arriving.
+  lines:
+  - Open the Configuration tab.
+  - In e bus device, enter your adapter's address. For a network adapter, that's e n s, colon, its IP address, colon, nine nine nine nine.
+  - Older adapters use e n h instead, and a USB adapter is simply its device path.
+  - The other options can stay at their defaults.
+  - Save, go back to the Info tab, turn on Show in sidebar, and click Start.
+  - In the log, you'll see ebusd connect to the bus, and messages from your heat pump start to arrive.
+- id: first_look
+  visual: Sidebar entry Genia Air. Diagnostics tab with detected devices and compatibility banner. Then Overview with KPI cards highlighted.
+  lines:
+  - Open Genia Air from the sidebar, and go straight to the Diagnostics tab.
+  - Check that your heat management unit and your room controller have been detected, and read the compatibility banner.
+  - If your hardware is different from the tested unit, the Report on GitHub button opens an anonymous compatibility report. It never includes your readings or your network details.
+  - Then go to the Overview.
+  - Delta T is the difference between supply and return water. It is the fastest way to see how your system is behaving.
+  - And COP is how much heat you get for each unit of electricity. For an air source heat pump, two to five is typical.
+- id: control
+  visual: Production panel, Controls tab. Read-only card, checkbox, Enable full control. Expiry time, Values look right, a setpoint change, Back to read-only, value restored.
+  lines:
+  - Out of the box, the app is read-only. Nothing is ever written to your heat pump until you allow it.
+  - Watch the readings for a while first, and make sure they make sense.
+  - When you are ready, tick the confirmation box and enable full control.
+  - A control session always expires on its own, and the app regularly asks you to confirm that the values still look right.
+  - If you don't answer, or if the connection to the bus is lost, it reverts by itself.
+  - And reverting means a real restore. Every value goes back to exactly where it was before the session started.
+- id: more
+  visual: Quick montage. Charts, Optimizer tab, the five MQTT entities in Home Assistant, an automation using one of them.
+  lines:
+  - There is more to explore. Charts, the optimizer's decision log, and a Home Assistant device with entities you can use in your own automations.
+- id: outro
+  visual: Configuration simulate_hardware toggle, then repo URL card, then credits card.
+  lines:
+  - No adapter yet? Turn on simulate hardware, and try the whole app with realistic test data.
+  - The project is open source and still in beta, tested on one real unit so far.
+  - If yours is different, your compatibility report is the best way to help.
+  - The link is in the description. Thanks for watching.

@@ -1,0 +1,68 @@
+lang: it
+scenes:
+  hook_short:
+  - La tua pompa di calore Vaillant Genia Air, completamente integrata in Home Assistant.
+  - Efficienza in tempo reale, storico completo e controllo sicuro. Tutto in locale, senza cloud.
+  intro: []
+  requirements:
+  - Ecco cosa ti serve.
+  - La tua pompa di calore comunica tramite eBUS, un semplice bus a due fili all'interno della stazione idraulica.
+  - Un adattatore eBUS si collega a quei due fili e porta il bus sulla tua rete.
+  - E in Home Assistant ti servono Home Assistant OS, con la sua raccolta delle app, e un broker MQTT.
+  - Tutto qui. Nessun account cloud e nessun gateway aggiuntivo del produttore.
+  hook_long:
+  - Prima di installarlo, ecco cosa otterrai.
+  - Ogni minuto, l'app registra le temperature di mandata e di ritorno, il delta T, la potenza elettrica e termica, e il COP reale della tua macchina.
+  - Sei ore, un giorno, tre giorni o un'intera settimana, tutto salvato in locale sul tuo Home Assistant.
+  - Un ottimizzatore integrato regola la temperatura di mandata in base al meteo, passa dal riscaldamento al raffrescamento con le stagioni, e ti avvisa quando qualcosa devia.
+  - E una pagina di diagnostica ti mostra esattamente quali dispositivi ha trovato sul bus, e se la tua unità è già stata testata.
+  safety:
+  - Un'avvertenza importante prima di toccare qualsiasi cablaggio.
+  - Togli l'alimentazione all'unità, segui il manuale di installazione e, se hai dubbi, rivolgiti a un installatore qualificato.
+  ebusd_credit:
+  - Niente di tutto questo esisterebbe senza ebusd, il demone eBUS open source di John Baier.
+  - L'adattatore eBUS che vedi in questo video nasce dallo stesso progetto.
+  - Se te ne serve uno, acquistalo dai rivenditori ufficiali indicati su adapter punto ebusd punto eu. Così sostieni il progetto su cui si basa tutto questo.
+  wiring:
+  - Apri il coperchio della centralina della stazione idraulica.
+  - Trova il morsetto eBUS. È un connettore a due fili, di solito indicato come BUS.
+  - L'eBUS non ha polarità, quindi i due fili possono essere collegati in qualsiasi verso.
+  - Collega l'adattatore, alimentalo e attendi che il suo LED indichi che ha trovato il bus.
+  - Richiudi il coperchio e annota l'indirizzo IP dell'adattatore nella tua rete. Ci servirà tra poco.
+  mosquitto:
+  - In Home Assistant, Genia Air ha bisogno di un broker MQTT.
+  - Se non ne hai ancora uno, installa il broker ufficiale Mosquitto dalla raccolta delle app e avvialo.
+  install:
+  - Ora aggiungi il repository di Genia Air.
+  - Vai in Impostazioni, Applicazioni, e fai clic su Installa app.
+  - Apri il menu in alto a destra, scegli Archivi digitali, incolla l'indirizzo mostrato sullo schermo e fai clic su Aggiungi.
+  - Vaillant Genia Air ora compare nella raccolta delle app. Aprila e fai clic su Installa.
+  - Include già ebusd e le definizioni dei messaggi Vaillant, quindi non c'è altro da installare.
+  configure:
+  - Apri la scheda Configurazione.
+  - In e bus device, inserisci l'indirizzo del tuo adattatore. Per un adattatore di rete, è e enne esse, due punti, il suo indirizzo IP, due punti, nove nove nove nove.
+  - Gli adattatori più vecchi usano invece e enne acca, e per un adattatore USB basta il percorso del dispositivo.
+  - Le altre opzioni possono restare ai valori predefiniti.
+  - Salva, torna alla scheda Informazioni, attiva Mostra nella barra laterale e fai clic su Avvia.
+  - Nel registro vedrai ebusd collegarsi al bus, e i messaggi della tua pompa di calore iniziare ad arrivare.
+  first_look:
+  - Apri Genia Air dalla barra laterale e vai subito alla scheda Diagnostica.
+  - Verifica che siano stati rilevati l'unità di gestione e il regolatore ambiente, e leggi l'avviso di compatibilità.
+  - Se il tuo hardware è diverso dall'unità testata, il pulsante Report on GitHub apre un rapporto di compatibilità anonimo. Non contiene mai le tue letture né i dati della tua rete.
+  - Poi passa alla panoramica.
+  - Il delta T è la differenza tra l'acqua di mandata e quella di ritorno. È il modo più rapido per capire come si comporta il tuo impianto.
+  - E il COP indica quanto calore ottieni per ogni unità di elettricità. Per una pompa di calore aria acqua, tra due e cinque è normale.
+  control:
+  - Di base, l'app funziona in sola lettura. Non scrive mai nulla sulla tua pompa di calore finché non lo permetti tu.
+  - Osserva prima le letture per un po' e assicurati che abbiano senso.
+  - Quando sei pronto, spunta la casella di conferma e attiva il controllo completo.
+  - Una sessione di controllo scade sempre da sola, e l'app ti chiede regolarmente di confermare che i valori siano ancora corretti.
+  - Se non rispondi, o se si perde la connessione con il bus, torna indietro da sola.
+  - E tornare indietro significa un vero ripristino. Ogni valore torna esattamente dov'era prima dell'inizio della sessione.
+  more:
+  - C'è molto altro da scoprire. Grafici, il registro delle decisioni dell'ottimizzatore, e un dispositivo Home Assistant con entità da usare nelle tue automazioni.
+  outro:
+  - Non hai ancora un adattatore? Attiva simulate hardware e prova tutta l'app con dati di prova realistici.
+  - Il progetto è open source e ancora in beta, testato finora su una sola unità reale.
+  - Se la tua è diversa, il tuo rapporto di compatibilità è il modo migliore per aiutare.
+  - Il link è nella descrizione. Grazie per la visione.

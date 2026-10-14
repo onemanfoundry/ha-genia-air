@@ -1,0 +1,14 @@
+<!doctype html><meta charset="utf-8"><link rel="stylesheet" href="base.css"><script src="common.js"></script>
+<style>
+  .box { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:1500px; text-align:center; }
+  .omf { width:220px; animation-name:pop; animation-duration:.7s; }
+  p { font-size:34px; line-height:1.4; margin-top:26px; color:var(--text); animation-name:fadeUp; animation-duration:.6s; }
+  p.legal { font-size:26px; color:var(--muted); margin-top:48px; }
+</style>
+<body class="solid"><div class="box"><img class="omf anim" data-at="0.1" id="omf"><div id="lines"></div></div>
+<script>document.addEventListener("DOMContentLoaded", () => {
+  const C = window.CTX || {}, box = document.getElementById("lines");
+  (C.credits || []).forEach((t, i, a) => { const p = document.createElement("p"); p.textContent = t;
+    p.className = "anim" + (i === a.length - 1 ? " legal" : ""); p.style.animationDelay = (0.5 + i * 0.6) + "s"; box.appendChild(p); });
+  if (C.omf) document.getElementById("omf").src = C.omf; else document.getElementById("omf").style.display = "none";
+});</script>

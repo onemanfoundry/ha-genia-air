@@ -1,0 +1,68 @@
+lang: es
+scenes:
+  hook_short:
+  - Tu bomba de calor Vaillant Genia Air, completamente integrada en Home Assistant.
+  - Eficiencia en directo, histórico completo y control seguro. Todo en local, sin nube.
+  intro: []
+  requirements:
+  - Esto es lo que necesitas.
+  - Tu bomba de calor se comunica por eBUS, un bus sencillo de dos hilos dentro de la estación hidráulica.
+  - Un adaptador eBUS se conecta a esos dos hilos y lleva el bus a tu red.
+  - Y en Home Assistant, necesitas Home Assistant OS, con su tienda de aplicaciones, y un broker MQTT.
+  - Nada más. Ni cuenta en la nube, ni pasarela adicional del fabricante.
+  hook_long:
+  - Antes de instalarlo, esto es lo que vas a tener.
+  - Cada minuto, la aplicación guarda las temperaturas de impulsión y retorno, el delta T, la potencia eléctrica y térmica, y el COP real de tu máquina.
+  - Seis horas, un día, tres días o una semana entera, todo guardado en local en tu Home Assistant.
+  - Un optimizador integrado ajusta la temperatura de impulsión según el tiempo, cambia entre calefacción y refrigeración con las estaciones, y te avisa cuando algo se desvía.
+  - Y una página de diagnóstico te dice exactamente qué equipos ha encontrado en el bus, y si tu unidad ya ha sido probada.
+  safety:
+  - Una advertencia importante antes de tocar ningún cable.
+  - Corta la alimentación de la unidad, sigue el manual de instalación y, si tienes dudas, consulta a un instalador cualificado.
+  ebusd_credit:
+  - Nada de esto existiría sin ebusd, el demonio eBUS de código abierto creado por John Baier.
+  - El adaptador eBUS que aparece en este vídeo sale del mismo proyecto.
+  - Si necesitas uno, cómpralo en las tiendas oficiales que aparecen en adapter punto ebusd punto eu. Así apoyas el proyecto sobre el que se construye todo esto.
+  wiring:
+  - Abre la tapa de la centralita de la estación hidráulica.
+  - Busca el borne eBUS. Es un conector de dos hilos, normalmente marcado como BUS.
+  - El eBUS no tiene polaridad, así que los dos hilos pueden ir en cualquier orden.
+  - Conecta el adaptador, aliméntalo y espera a que su LED indique que ha encontrado el bus.
+  - Cierra la tapa y apunta la dirección IP del adaptador en tu red. La necesitaremos enseguida.
+  mosquitto:
+  - En Home Assistant, Genia Air necesita un broker MQTT.
+  - Si todavía no tienes uno, instala el broker oficial Mosquitto desde la tienda de aplicaciones y arráncalo.
+  install:
+  - Ahora añade el repositorio de Genia Air.
+  - Ve a Configuración, Aplicaciones, y pulsa Instalar aplicación.
+  - Abre el menú de la esquina superior derecha, elige Repositorios, pega la dirección que ves en pantalla y pulsa Añadir.
+  - Vaillant Genia Air aparece ahora en la tienda de aplicaciones. Ábrela y pulsa Instalar.
+  - Ya incluye ebusd y las definiciones de mensajes de Vaillant, así que no hay que instalar nada más.
+  configure:
+  - Abre la pestaña Configuración.
+  - En e bus device, escribe la dirección de tu adaptador. Para un adaptador de red, es e ene ese, dos puntos, su dirección IP, dos puntos, nueve nueve nueve nueve.
+  - Los adaptadores antiguos usan e ene hache en su lugar, y uno USB es simplemente la ruta del dispositivo.
+  - El resto de opciones pueden quedarse con sus valores por defecto.
+  - Guarda, vuelve a la pestaña Información, activa Mostrar en el panel lateral y pulsa Iniciar.
+  - En el registro verás cómo ebusd se conecta al bus y empiezan a llegar los mensajes de tu bomba de calor.
+  first_look:
+  - Abre Genia Air desde la barra lateral y ve directamente a la pestaña de Diagnóstico.
+  - Comprueba que se han detectado tu unidad de gestión térmica y tu controlador de ambiente, y lee el aviso de compatibilidad.
+  - Si tu equipo es distinto de la unidad probada, el botón Report on GitHub abre un informe de compatibilidad anónimo. Nunca incluye tus lecturas ni los datos de tu red.
+  - Después ve a la vista general.
+  - El delta T es la diferencia entre el agua de impulsión y la de retorno. Es la forma más rápida de ver cómo se está comportando tu instalación.
+  - Y el COP es cuánto calor obtienes por cada unidad de electricidad. En una bomba de calor aire agua, lo normal es entre dos y cinco.
+  control:
+  - De serie, la aplicación es de solo lectura. Nunca escribe nada en tu bomba de calor hasta que tú lo permitas.
+  - Observa primero las lecturas durante un rato y asegúrate de que tienen sentido.
+  - Cuando estés listo, marca la casilla de confirmación y activa el control total.
+  - Una sesión de control siempre caduca sola, y la aplicación te pide periódicamente que confirmes que los valores siguen siendo correctos.
+  - Si no respondes, o si se pierde la conexión con el bus, vuelve atrás por sí sola.
+  - Y volver atrás significa una restauración real. Cada valor regresa exactamente a donde estaba antes de empezar la sesión.
+  more:
+  - Hay mucho más por explorar. Gráficas, el registro de decisiones del optimizador, y un dispositivo de Home Assistant con entidades que puedes usar en tus propias automatizaciones.
+  outro:
+  - ¿Aún no tienes adaptador? Activa simulate hardware y prueba toda la aplicación con datos de prueba realistas.
+  - El proyecto es de código abierto y todavía está en beta, probado de momento en una sola unidad real.
+  - Si la tuya es distinta, tu informe de compatibilidad es la mejor forma de ayudar.
+  - El enlace está en la descripción. Gracias por verlo.

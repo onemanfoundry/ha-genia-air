@@ -1,0 +1,121 @@
+# YouTube title, description and chapter names per language.
+# {chapters} is replaced by the build with timestamps from the final cut.
+en:
+  title: "Vaillant Genia Air in Home Assistant — install & setup (local, no cloud)"
+  chapters: {hook_short: Intro, requirements: What you need, hook_long: What you get, safety: Safety, ebusd_credit: "ebusd & the eBUS adapter", wiring: Wiring the adapter, mosquitto: MQTT broker, install: Install the app, configure: Configure and start, first_look: First look, control: Safe control, more: More features, outro: Try it / help}
+  description: |
+    Control and monitor a Vaillant Genia Air heat pump from Home Assistant over eBUS: live COP and ΔT, local history, a weather-compensated optimizer and safe, time-boxed control. Fully local, no cloud.
+
+    Repository: https://github.com/onemanfoundry/ha-genia-air
+    eBUS adapter (official sources): https://adapter.ebusd.eu
+    ebusd by John Baier: https://github.com/john30/ebusd
+
+    {chapters}
+
+    Beta: tested on one real unit (HMU00 0901/5103, CTLS2 0509/1304, VWZIO 0202/0103). Different hardware? The Diagnostics tab creates an anonymous compatibility report.
+    Safety: switch off the power before wiring and follow your installation manual; if in doubt, ask a qualified installer.
+
+    Music generated with ACE-Step 1.5 (MIT). Narration: AI voice (Chatterbox, MIT) cloned from the author.
+    Not affiliated with or endorsed by Vaillant. Vaillant and Genia Air are trademarks of their respective owners.
+es:
+  title: "Vaillant Genia Air en Home Assistant — instalación y configuración (local, sin nube)"
+  chapters: {hook_short: Intro, requirements: Qué necesitas, hook_long: Qué obtienes, safety: Seguridad, ebusd_credit: "ebusd y el adaptador eBUS", wiring: Conexión del adaptador, mosquitto: Broker MQTT, install: Instalar la aplicación, configure: Configurar y arrancar, first_look: Primer vistazo, control: Control seguro, more: Más funciones, outro: Pruébalo / ayuda}
+  description: |
+    Controla y monitoriza una bomba de calor Vaillant Genia Air desde Home Assistant por eBUS: COP y ΔT en directo, histórico local, optimizador según la temperatura exterior y control seguro con caducidad. Todo en local, sin nube.
+
+    Repositorio: https://github.com/onemanfoundry/ha-genia-air
+    Adaptador eBUS (tiendas oficiales): https://adapter.ebusd.eu
+    ebusd, de John Baier: https://github.com/john30/ebusd
+
+    {chapters}
+
+    Beta: probado en una unidad real (HMU00 0901/5103, CTLS2 0509/1304, VWZIO 0202/0103). ¿Otro equipo? La pestaña Diagnostics genera un informe de compatibilidad anónimo.
+    Seguridad: corta la alimentación antes de conectar nada y sigue el manual de instalación; si tienes dudas, consulta a un instalador cualificado.
+
+    Música generada con ACE-Step 1.5 (MIT). Locución: voz IA (Chatterbox, MIT) clonada del autor.
+    Sin relación ni respaldo de Vaillant. Vaillant y Genia Air son marcas de sus respectivos propietarios.
+de:
+  title: "Vaillant Genia Air in Home Assistant — Installation & Einrichtung (lokal, ohne Cloud)"
+  chapters: {hook_short: Intro, requirements: Was Sie brauchen, hook_long: Was Sie bekommen, safety: Sicherheit, ebusd_credit: "ebusd & der eBUS-Adapter", wiring: Adapter anschließen, mosquitto: MQTT-Broker, install: App installieren, configure: Konfigurieren und starten, first_look: Erster Blick, control: Sichere Steuerung, more: Weitere Funktionen, outro: Ausprobieren / helfen}
+  description: |
+    Steuern und überwachen Sie eine Vaillant Genia Air Wärmepumpe über eBUS in Home Assistant: Leistungszahl und ΔT live, lokaler Verlauf, witterungsgeführter Optimierer und sichere, zeitlich begrenzte Steuerung. Komplett lokal, ohne Cloud.
+
+    Repository: https://github.com/onemanfoundry/ha-genia-air
+    eBUS-Adapter (offizielle Quellen): https://adapter.ebusd.eu
+    ebusd von John Baier: https://github.com/john30/ebusd
+
+    {chapters}
+
+    Beta: an einem echten Gerät getestet (HMU00 0901/5103, CTLS2 0509/1304, VWZIO 0202/0103). Andere Hardware? Der Reiter Diagnostics erstellt einen anonymen Kompatibilitätsbericht.
+    Sicherheit: vor dem Anschließen stromlos schalten und die Installationsanleitung beachten; im Zweifel einen Fachbetrieb fragen.
+
+    Musik erzeugt mit ACE-Step 1.5 (MIT). Sprecher: KI-Stimme (Chatterbox, MIT), vom Autor geklont.
+    Keine Verbindung zu Vaillant und nicht von Vaillant unterstützt. Vaillant und Genia Air sind Marken ihrer jeweiligen Inhaber.
+fr:
+  title: "Vaillant Genia Air dans Home Assistant — installation et configuration (local, sans cloud)"
+  chapters: {hook_short: Intro, requirements: Ce qu'il vous faut, hook_long: Ce que vous obtenez, safety: Sécurité, ebusd_credit: "ebusd et l'adaptateur eBUS", wiring: Brancher l'adaptateur, mosquitto: Broker MQTT, install: "Installer l'application", configure: Configurer et démarrer, first_look: Premier aperçu, control: Pilotage sécurisé, more: Autres fonctions, outro: Essayer / aider}
+  description: |
+    Pilotez et surveillez une pompe à chaleur Vaillant Genia Air depuis Home Assistant via eBUS : COP et ΔT en direct, historique local, optimiseur selon la météo et pilotage sécurisé à durée limitée. Tout en local, sans cloud.
+
+    Dépôt : https://github.com/onemanfoundry/ha-genia-air
+    Adaptateur eBUS (sources officielles) : https://adapter.ebusd.eu
+    ebusd, par John Baier : https://github.com/john30/ebusd
+
+    {chapters}
+
+    Bêta : testé sur une unité réelle (HMU00 0901/5103, CTLS2 0509/1304, VWZIO 0202/0103). Autre matériel ? L'onglet Diagnostics génère un rapport de compatibilité anonyme.
+    Sécurité : coupez l'alimentation avant tout branchement et suivez la notice d'installation ; en cas de doute, faites appel à un installateur qualifié.
+
+    Musique générée avec ACE-Step 1.5 (MIT). Voix : voix IA (Chatterbox, MIT) basée sur celle de l'auteur.
+    Sans lien avec Vaillant ni approuvé par Vaillant. Vaillant et Genia Air sont des marques de leurs propriétaires respectifs.
+it:
+  title: "Vaillant Genia Air in Home Assistant — installazione e configurazione (locale, senza cloud)"
+  chapters: {hook_short: Intro, requirements: Cosa ti serve, hook_long: Cosa ottieni, safety: Sicurezza, ebusd_credit: "ebusd e l'adattatore eBUS", wiring: Collegare l'adattatore, mosquitto: Broker MQTT, install: Installare l'app, configure: Configurare e avviare, first_look: Primo sguardo, control: Controllo sicuro, more: Altre funzioni, outro: Provalo / aiutaci}
+  description: |
+    Controlla e monitora una pompa di calore Vaillant Genia Air da Home Assistant tramite eBUS: COP e ΔT in tempo reale, storico locale, ottimizzatore in base al meteo e controllo sicuro a tempo. Tutto in locale, senza cloud.
+
+    Repository: https://github.com/onemanfoundry/ha-genia-air
+    Adattatore eBUS (rivenditori ufficiali): https://adapter.ebusd.eu
+    ebusd di John Baier: https://github.com/john30/ebusd
+
+    {chapters}
+
+    Beta: testato su una unità reale (HMU00 0901/5103, CTLS2 0509/1304, VWZIO 0202/0103). Hardware diverso? La scheda Diagnostics crea un rapporto di compatibilità anonimo.
+    Sicurezza: togli l'alimentazione prima di collegare e segui il manuale di installazione; se hai dubbi, rivolgiti a un installatore qualificato.
+
+    Musica generata con ACE-Step 1.5 (MIT). Voce: voce IA (Chatterbox, MIT) clonata dall'autore.
+    Non affiliato né approvato da Vaillant. Vaillant e Genia Air sono marchi dei rispettivi proprietari.
+nl:
+  title: "Vaillant Genia Air in Home Assistant — installatie en instelling (lokaal, zonder cloud)"
+  chapters: {hook_short: Intro, requirements: Wat je nodig hebt, hook_long: Wat je krijgt, safety: Veiligheid, ebusd_credit: "ebusd en de eBUS-adapter", wiring: Adapter aansluiten, mosquitto: MQTT-broker, install: App installeren, configure: Instellen en starten, first_look: Eerste blik, control: Veilige bediening, more: Meer functies, outro: Probeer het / help mee}
+  description: |
+    Bedien en bewaak een Vaillant Genia Air warmtepomp vanuit Home Assistant via eBUS: live COP en ΔT, lokale historie, een weersafhankelijke optimizer en veilige, tijdgebonden bediening. Volledig lokaal, zonder cloud.
+
+    Repository: https://github.com/onemanfoundry/ha-genia-air
+    eBUS-adapter (officiële bronnen): https://adapter.ebusd.eu
+    ebusd door John Baier: https://github.com/john30/ebusd
+
+    {chapters}
+
+    Bèta: getest op één echte unit (HMU00 0901/5103, CTLS2 0509/1304, VWZIO 0202/0103). Andere hardware? Het tabblad Diagnostics maakt een anoniem compatibiliteitsrapport.
+    Veiligheid: schakel de stroom uit voordat je iets aansluit en volg de installatiehandleiding; twijfel je, vraag dan een erkend installateur.
+
+    Muziek gemaakt met ACE-Step 1.5 (MIT). Stem: AI-stem (Chatterbox, MIT) gekloond van de maker.
+    Niet verbonden aan of goedgekeurd door Vaillant. Vaillant en Genia Air zijn merken van hun respectieve eigenaren.
+pl:
+  title: "Vaillant Genia Air w Home Assistant — instalacja i konfiguracja (lokalnie, bez chmury)"
+  chapters: {hook_short: Wstęp, requirements: Czego potrzebujesz, hook_long: Co dostajesz, safety: Bezpieczeństwo, ebusd_credit: "ebusd i adapter eBUS", wiring: Podłączenie adaptera, mosquitto: Broker MQTT, install: Instalacja aplikacji, configure: Konfiguracja i start, first_look: Pierwsze spojrzenie, control: Bezpieczne sterowanie, more: Więcej funkcji, outro: Wypróbuj / pomóż}
+  description: |
+    Steruj i monitoruj pompę ciepła Vaillant Genia Air z Home Assistant przez eBUS: COP i ΔT na żywo, lokalna historia, optymalizator pogodowy i bezpieczne, ograniczone czasowo sterowanie. W pełni lokalnie, bez chmury.
+
+    Repozytorium: https://github.com/onemanfoundry/ha-genia-air
+    Adapter eBUS (oficjalne źródła): https://adapter.ebusd.eu
+    ebusd autorstwa Johna Baiera: https://github.com/john30/ebusd
+
+    {chapters}
+
+    Beta: przetestowane na jednej prawdziwej jednostce (HMU00 0901/5103, CTLS2 0509/1304, VWZIO 0202/0103). Inny sprzęt? Karta Diagnostics tworzy anonimowy raport zgodności.
+    Bezpieczeństwo: przed podłączaniem odłącz zasilanie i postępuj zgodnie z instrukcją; w razie wątpliwości wezwij wykwalifikowanego instalatora.
+
+    Muzyka wygenerowana w ACE-Step 1.5 (MIT). Lektor: głos AI (Chatterbox, MIT) sklonowany od autora.
+    Brak powiązań z firmą Vaillant ani jej poparcia. Vaillant i Genia Air są znakami towarowymi ich właścicieli.

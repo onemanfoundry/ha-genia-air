@@ -1,0 +1,15 @@
+# Generated media stays out of git (see README for how to regenerate it)
+raw/
+build/
+out/
+out_test/
+smoke/
+assets/tts/
+assets/music/
+assets/intro_omf.mp4
+assets/web/
+__pycache__/
+*.mkv
+*.mp4
+*.wav
+*.mov

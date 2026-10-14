@@ -1,0 +1,68 @@
+lang: de
+scenes:
+  hook_short:
+  - Ihre Vaillant Genia Air Wärmepumpe, komplett in Home Assistant.
+  - Effizienz in Echtzeit, vollständiger Verlauf und sichere Steuerung. Alles lokal, ohne Cloud.
+  intro: []
+  requirements:
+  - Das brauchen Sie.
+  - Ihre Wärmepumpe kommuniziert über eBUS, einen einfachen Zweidrahtbus in der Hydraulikstation.
+  - Ein eBUS-Adapter wird an diese beiden Drähte angeschlossen und bringt den Bus in Ihr Netzwerk.
+  - Und auf der Home-Assistant-Seite brauchen Sie Home Assistant OS mit seinem App-Store und einen MQTT-Broker.
+  - Das ist alles. Kein Cloud-Konto und kein zusätzliches Gateway vom Hersteller.
+  hook_long:
+  - Bevor wir es installieren, sehen Sie hier, was Sie bekommen.
+  - Jede Minute speichert die App Vorlauf- und Rücklauftemperatur, Delta T, elektrische und thermische Leistung sowie die echte Leistungszahl Ihrer Anlage.
+  - Sechs Stunden, ein Tag, drei Tage oder eine ganze Woche, alles lokal in Ihrem Home Assistant gespeichert.
+  - Ein eingebauter Optimierer passt die Vorlauftemperatur an das Wetter an, wechselt je nach Jahreszeit zwischen Heizen und Kühlen und warnt Sie, wenn etwas abweicht.
+  - Und eine Diagnoseseite zeigt Ihnen genau, welche Geräte am Bus gefunden wurden und ob Ihr Gerät bereits getestet ist.
+  safety:
+  - Ein wichtiger Hinweis, bevor Sie an der Verkabelung arbeiten.
+  - Schalten Sie das Gerät stromlos, folgen Sie der Installationsanleitung, und wenn Sie unsicher sind, fragen Sie einen Fachbetrieb.
+  ebusd_credit:
+  - Nichts davon gäbe es ohne ebusd, den Open-Source-eBUS-Dienst von John Baier.
+  - Der eBUS-Adapter in diesem Video stammt aus demselben Projekt.
+  - Wenn Sie einen brauchen, kaufen Sie ihn bitte bei den offiziellen Quellen auf adapter punkt ebusd punkt eu. Damit unterstützen Sie das Projekt, auf dem all das aufbaut.
+  wiring:
+  - Öffnen Sie die Abdeckung des Schaltkastens der Hydraulikstation.
+  - Suchen Sie die eBUS-Klemme. Das ist ein zweipoliger Anschluss, meist mit BUS beschriftet.
+  - Beim eBUS spielt die Polarität keine Rolle, die beiden Drähte können also beliebig angeschlossen werden.
+  - Schließen Sie den Adapter an, versorgen Sie ihn mit Strom und warten Sie, bis seine Status-LED zeigt, dass er den Bus gefunden hat.
+  - Schließen Sie die Abdeckung und notieren Sie die IP-Adresse des Adapters in Ihrem Netzwerk. Die brauchen wir gleich.
+  mosquitto:
+  - In Home Assistant braucht Genia Air einen MQTT-Broker.
+  - Falls Sie noch keinen haben, installieren Sie den offiziellen Mosquitto-Broker aus dem App-Store und starten Sie ihn.
+  install:
+  - Fügen Sie jetzt das Genia-Air-Repository hinzu.
+  - Gehen Sie zu Einstellungen, Apps, und klicken Sie auf App installieren.
+  - Öffnen Sie das Menü oben rechts, wählen Sie Repositories, fügen Sie die eingeblendete Adresse ein und klicken Sie auf Hinzufügen.
+  - Vaillant Genia Air erscheint jetzt im App-Store. Öffnen Sie es und klicken Sie auf Installieren.
+  - ebusd und die Vaillant-Nachrichtendefinitionen sind bereits enthalten, Sie müssen also nichts weiter installieren.
+  configure:
+  - Öffnen Sie den Reiter Konfiguration.
+  - Tragen Sie unter e bus device die Adresse Ihres Adapters ein. Bei einem Netzwerkadapter ist das e n s, Doppelpunkt, seine IP-Adresse, Doppelpunkt, neun neun neun neun.
+  - Ältere Adapter verwenden stattdessen e n h, und bei einem USB-Adapter ist es einfach der Gerätepfad.
+  - Die übrigen Optionen können auf ihren Standardwerten bleiben.
+  - Speichern Sie, wechseln Sie zurück zum Reiter Info, aktivieren Sie In Seitenleiste anzeigen und klicken Sie auf Starten.
+  - Im Protokoll sehen Sie, wie sich ebusd mit dem Bus verbindet und die ersten Nachrichten Ihrer Wärmepumpe eintreffen.
+  first_look:
+  - Öffnen Sie Genia Air in der Seitenleiste und gehen Sie direkt zum Reiter Diagnose.
+  - Prüfen Sie, ob Ihre Wärmemanagement-Einheit und Ihr Raumregler erkannt wurden, und lesen Sie den Kompatibilitätshinweis.
+  - Weicht Ihre Hardware von der getesteten Einheit ab, öffnet die Schaltfläche Report on GitHub einen anonymen Kompatibilitätsbericht. Er enthält nie Ihre Messwerte oder Netzwerkdaten.
+  - Gehen Sie dann zur Übersicht.
+  - Delta T ist der Unterschied zwischen Vorlauf- und Rücklaufwasser. So sehen Sie am schnellsten, wie sich Ihre Anlage verhält.
+  - Und die Leistungszahl zeigt, wie viel Wärme Sie pro Einheit Strom bekommen. Bei einer Luft-Wasser-Wärmepumpe sind zwei bis fünf typisch.
+  control:
+  - Ab Werk arbeitet die App nur lesend. Es wird nichts an Ihre Wärmepumpe geschrieben, bis Sie es erlauben.
+  - Beobachten Sie die Messwerte zuerst eine Weile und prüfen Sie, ob sie plausibel sind.
+  - Wenn Sie so weit sind, setzen Sie das Bestätigungshäkchen und aktivieren Sie die volle Steuerung.
+  - Eine Steuerungssitzung läuft immer von selbst ab, und die App bittet Sie regelmäßig zu bestätigen, dass die Werte noch stimmen.
+  - Wenn Sie nicht antworten oder die Verbindung zum Bus verloren geht, setzt sie sich selbst zurück.
+  - Und zurücksetzen heißt echte Wiederherstellung. Jeder Wert kehrt genau dorthin zurück, wo er vor Beginn der Sitzung war.
+  more:
+  - Es gibt noch mehr zu entdecken. Diagramme, das Entscheidungsprotokoll des Optimierers und ein Home-Assistant-Gerät mit Entitäten für Ihre eigenen Automatisierungen.
+  outro:
+  - Noch keinen Adapter? Schalten Sie simulate hardware ein und testen Sie die ganze App mit realistischen Testdaten.
+  - Das Projekt ist Open Source und noch in der Beta, bisher an einem einzigen echten Gerät getestet.
+  - Wenn Ihres anders ist, hilft Ihr Kompatibilitätsbericht am meisten.
+  - Der Link steht in der Beschreibung. Danke fürs Zuschauen.

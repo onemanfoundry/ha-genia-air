@@ -1,0 +1,268 @@
+# On-screen text for generated cards and overlays, per language.
+en:
+  req:
+    heat_pump: Heat pump
+    station: Hydraulic station
+    bus: eBUS · 2 wires
+    adapter: eBUS adapter
+    lan: Your network
+    ha: Home Assistant OS
+    mqtt: MQTT broker
+    app: Genia Air app
+    nocloud: No cloud
+  safety:
+    title: Safety first
+    l1: Switch off the power
+    l2: Follow your installation manual
+    l3: If in doubt, ask a qualified installer
+  credit:
+    title: ebusd & eBUS adapter
+    by: John Baier (john30) & the eBUS Adapter team
+    buy: Buy it from the official sources
+    url: adapter.ebusd.eu
+  wiring:
+    bus: BUS terminal
+    polarity: 'No polarity: either way round'
+    led: LED on = bus found
+    ip: Note the adapter's IP address
+  later: A few minutes later
+  repo: Repository
+  outro:
+    title: Vaillant Genia Air for Home Assistant
+    sub: Open source · Beta · tested on one real unit
+    help: Different hardware? Send a compatibility report
+  credits:
+  - 'ebusd & eBUS adapter: John Baier (john30), eBUS Adapter team · github.com/john30/ebusd'
+  - 'Music: generated with ACE-Step 1.5 (MIT)'
+  - 'Narration: AI voice (Chatterbox, MIT) cloned from the author'
+  - Not affiliated with or endorsed by Vaillant. Vaillant and Genia Air are trademarks of their respective owners.
+  demo: Simulated hardware · demo data
+es:
+  req:
+    heat_pump: Bomba de calor
+    station: Estación hidráulica
+    bus: eBUS · 2 hilos
+    adapter: Adaptador eBUS
+    lan: Tu red
+    ha: Home Assistant OS
+    mqtt: Broker MQTT
+    app: App Genia Air
+    nocloud: Sin nube
+  safety:
+    title: Primero
+    la seguridad: null
+    l1: Corta la alimentación
+    l2: Sigue el manual de instalación
+    l3: Si tienes dudas, consulta a un instalador cualificado
+  credit:
+    title: ebusd y adaptador eBUS
+    by: John Baier (john30) y el eBUS Adapter team
+    buy: Cómpralo en las tiendas oficiales
+    url: adapter.ebusd.eu
+  wiring:
+    bus: Borne BUS
+    polarity: 'Sin polaridad: en cualquier orden'
+    led: LED encendido = bus encontrado
+    ip: Apunta la IP del adaptador
+  later: Unos minutos después
+  repo: Repositorio
+  outro:
+    title: Vaillant Genia Air para Home Assistant
+    sub: Código abierto · Beta · probado en una unidad real
+    help: ¿Otro equipo? Envía un informe de compatibilidad
+  credits:
+  - 'ebusd y adaptador eBUS: John Baier (john30), eBUS Adapter team · github.com/john30/ebusd'
+  - 'Música: generada con ACE-Step 1.5 (MIT)'
+  - 'Locución: voz IA (Chatterbox, MIT) clonada del autor'
+  - Sin relación ni respaldo de Vaillant. Vaillant y Genia Air son marcas de sus respectivos propietarios.
+  demo: Hardware simulado · datos de demostración
+de:
+  req:
+    heat_pump: Wärmepumpe
+    station: Hydraulikstation
+    bus: eBUS · 2 Drähte
+    adapter: eBUS-Adapter
+    lan: Ihr Netzwerk
+    ha: Home Assistant OS
+    mqtt: MQTT-Broker
+    app: Genia-Air-App
+    nocloud: Ohne Cloud
+  safety:
+    title: Sicherheit zuerst
+    l1: Stromversorgung abschalten
+    l2: Installationsanleitung beachten
+    l3: Im Zweifel einen Fachbetrieb fragen
+  credit:
+    title: ebusd & eBUS-Adapter
+    by: John Baier (john30) & das eBUS Adapter team
+    buy: Kaufen Sie ihn bei den offiziellen Quellen
+    url: adapter.ebusd.eu
+  wiring:
+    bus: BUS-Klemme
+    polarity: 'Keine Polarität: beliebig anschließen'
+    led: LED an = Bus gefunden
+    ip: IP-Adresse des Adapters notieren
+  later: Ein paar Minuten später
+  repo: Repository
+  outro:
+    title: Vaillant Genia Air für Home Assistant
+    sub: Open Source · Beta · an einem echten Gerät getestet
+    help: Andere Hardware? Senden Sie einen Kompatibilitätsbericht
+  credits:
+  - 'ebusd & eBUS-Adapter: John Baier (john30), eBUS Adapter team · github.com/john30/ebusd'
+  - 'Musik: erzeugt mit ACE-Step 1.5 (MIT)'
+  - 'Sprecher: KI-Stimme (Chatterbox, MIT), vom Autor geklont'
+  - Keine Verbindung zu Vaillant und nicht von Vaillant unterstützt. Vaillant und Genia Air sind Marken ihrer jeweiligen Inhaber.
+  demo: Simulierte Hardware · Demodaten
+fr:
+  req:
+    heat_pump: Pompe à chaleur
+    station: Module hydraulique
+    bus: eBUS · 2 fils
+    adapter: Adaptateur eBUS
+    lan: Votre réseau
+    ha: Home Assistant OS
+    mqtt: Broker MQTT
+    app: Application Genia Air
+    nocloud: Sans cloud
+  safety:
+    title: La sécurité d'abord
+    l1: Coupez l'alimentation
+    l2: Suivez la notice d'installation
+    l3: En cas de doute, faites appel à un installateur qualifié
+  credit:
+    title: ebusd et adaptateur eBUS
+    by: John Baier (john30) et l'eBUS Adapter team
+    buy: Achetez-le auprès des sources officielles
+    url: adapter.ebusd.eu
+  wiring:
+    bus: Bornier BUS
+    polarity: 'Pas de polarité : dans n''importe quel sens'
+    led: Voyant allumé = bus trouvé
+    ip: Notez l'adresse IP de l'adaptateur
+  later: Quelques minutes plus tard
+  repo: Dépôt
+  outro:
+    title: Vaillant Genia Air pour Home Assistant
+    sub: Open source · Bêta · testé sur une unité réelle
+    help: Autre matériel ? Envoyez un rapport de compatibilité
+  credits:
+  - 'ebusd et adaptateur eBUS : John Baier (john30), eBUS Adapter team · github.com/john30/ebusd'
+  - 'Musique : générée avec ACE-Step 1.5 (MIT)'
+  - 'Voix : voix IA (Chatterbox, MIT) basée sur celle de l''auteur'
+  - Sans lien avec Vaillant ni approuvé par Vaillant. Vaillant et Genia Air sont des marques de leurs propriétaires respectifs.
+  demo: Matériel simulé · données de démonstration
+it:
+  req:
+    heat_pump: Pompa di calore
+    station: Stazione idraulica
+    bus: eBUS · 2 fili
+    adapter: Adattatore eBUS
+    lan: La tua rete
+    ha: Home Assistant OS
+    mqtt: Broker MQTT
+    app: App Genia Air
+    nocloud: Senza cloud
+  safety:
+    title: Prima la sicurezza
+    l1: Togli l'alimentazione
+    l2: Segui il manuale di installazione
+    l3: Se hai dubbi, rivolgiti a un installatore qualificato
+  credit:
+    title: ebusd e adattatore eBUS
+    by: John Baier (john30) e l'eBUS Adapter team
+    buy: Acquistalo dai rivenditori ufficiali
+    url: adapter.ebusd.eu
+  wiring:
+    bus: Morsetto BUS
+    polarity: 'Nessuna polarità: in qualsiasi verso'
+    led: LED acceso = bus trovato
+    ip: Annota l'IP dell'adattatore
+  later: Qualche minuto dopo
+  repo: Repository
+  outro:
+    title: Vaillant Genia Air per Home Assistant
+    sub: Open source · Beta · testato su una unità reale
+    help: Hardware diverso? Invia un rapporto di compatibilità
+  credits:
+  - 'ebusd e adattatore eBUS: John Baier (john30), eBUS Adapter team · github.com/john30/ebusd'
+  - 'Musica: generata con ACE-Step 1.5 (MIT)'
+  - 'Voce: voce IA (Chatterbox, MIT) clonata dall''autore'
+  - Non affiliato né approvato da Vaillant. Vaillant e Genia Air sono marchi dei rispettivi proprietari.
+  demo: Hardware simulato · dati dimostrativi
+nl:
+  req:
+    heat_pump: Warmtepomp
+    station: Hydraulisch station
+    bus: eBUS · 2 draden
+    adapter: eBUS-adapter
+    lan: Je netwerk
+    ha: Home Assistant OS
+    mqtt: MQTT-broker
+    app: Genia Air-app
+    nocloud: Geen cloud
+  safety:
+    title: Veiligheid voorop
+    l1: Schakel de stroom uit
+    l2: Volg de installatiehandleiding
+    l3: Twijfel je? Vraag een erkend installateur
+  credit:
+    title: ebusd en eBUS-adapter
+    by: John Baier (john30) & het eBUS Adapter team
+    buy: Koop hem via de officiële bronnen
+    url: adapter.ebusd.eu
+  wiring:
+    bus: BUS-aansluiting
+    polarity: 'Geen polariteit: willekeurige volgorde'
+    led: LED aan = bus gevonden
+    ip: Noteer het IP-adres van de adapter
+  later: Een paar minuten later
+  repo: Repository
+  outro:
+    title: Vaillant Genia Air voor Home Assistant
+    sub: Open source · Bèta · getest op één echte unit
+    help: Andere hardware? Stuur een compatibiliteitsrapport
+  credits:
+  - 'ebusd en eBUS-adapter: John Baier (john30), eBUS Adapter team · github.com/john30/ebusd'
+  - 'Muziek: gemaakt met ACE-Step 1.5 (MIT)'
+  - 'Stem: AI-stem (Chatterbox, MIT) gekloond van de maker'
+  - Niet verbonden aan of goedgekeurd door Vaillant. Vaillant en Genia Air zijn merken van hun respectieve eigenaren.
+  demo: Gesimuleerde hardware · demogegevens
+pl:
+  req:
+    heat_pump: Pompa ciepła
+    station: Stacja hydrauliczna
+    bus: eBUS · 2 przewody
+    adapter: Adapter eBUS
+    lan: Twoja sieć
+    ha: Home Assistant OS
+    mqtt: Broker MQTT
+    app: Aplikacja Genia Air
+    nocloud: Bez chmury
+  safety:
+    title: Najpierw bezpieczeństwo
+    l1: Odłącz zasilanie
+    l2: Postępuj zgodnie z instrukcją
+    l3: W razie wątpliwości wezwij instalatora
+  credit:
+    title: ebusd i adapter eBUS
+    by: John Baier (john30) i eBUS Adapter team
+    buy: Kup z oficjalnych źródeł
+    url: adapter.ebusd.eu
+  wiring:
+    bus: Zacisk BUS
+    polarity: 'Bez polaryzacji: dowolna kolejność'
+    led: Dioda świeci = magistrala znaleziona
+    ip: Zapisz adres IP adaptera
+  later: Kilka minut później
+  repo: Repozytorium
+  outro:
+    title: Vaillant Genia Air dla Home Assistant
+    sub: Open source · Beta · przetestowane na jednej jednostce
+    help: Inny sprzęt? Wyślij raport zgodności
+  credits:
+  - 'ebusd i adapter eBUS: John Baier (john30), eBUS Adapter team · github.com/john30/ebusd'
+  - 'Muzyka: wygenerowana w ACE-Step 1.5 (MIT)'
+  - 'Lektor: głos AI (Chatterbox, MIT) sklonowany od autora'
+  - Brak powiązań z firmą Vaillant ani jej poparcia. Vaillant i Genia Air są znakami towarowymi ich właścicieli.
+  demo: Symulowany sprzęt · dane demonstracyjne

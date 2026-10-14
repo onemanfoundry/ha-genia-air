@@ -1,0 +1,68 @@
+lang: pl
+scenes:
+  hook_short:
+  - Twoja pompa ciepła Vaillant Genia Air, w pełni zintegrowana z Home Assistant.
+  - Wydajność na żywo, pełna historia i bezpieczne sterowanie. Wszystko lokalnie, bez chmury.
+  intro: []
+  requirements:
+  - Oto, czego potrzebujesz.
+  - Twoja pompa ciepła komunikuje się przez eBUS, prostą dwużyłową magistralę w stacji hydraulicznej.
+  - Adapter eBUS podłącza się do tych dwóch przewodów i udostępnia magistralę w twojej sieci.
+  - A w Home Assistant potrzebujesz Home Assistant OS ze sklepem z aplikacjami oraz brokera MQTT.
+  - To wszystko. Bez konta w chmurze i bez dodatkowej bramki od producenta.
+  hook_long:
+  - Zanim go zainstalujemy, zobacz, co dostaniesz.
+  - Co minutę aplikacja zapisuje temperatury zasilania i powrotu, delta T, moc elektryczną i cieplną oraz rzeczywisty COP twojego urządzenia.
+  - Sześć godzin, dzień, trzy dni albo cały tydzień, wszystko zapisane lokalnie w twoim Home Assistant.
+  - Wbudowany optymalizator dopasowuje temperaturę zasilania do pogody, przełącza między grzaniem a chłodzeniem zależnie od pory roku, i ostrzega, gdy coś odbiega od normy.
+  - A strona diagnostyki pokazuje dokładnie, jakie urządzenia znalazł na magistrali i czy twoja jednostka była już testowana.
+  safety:
+  - Ważna uwaga, zanim dotkniesz jakichkolwiek przewodów.
+  - Odłącz zasilanie urządzenia, postępuj zgodnie z instrukcją instalacji, a w razie wątpliwości skontaktuj się z wykwalifikowanym instalatorem.
+  ebusd_credit:
+  - Nic z tego by nie istniało bez ebusd, otwartoźródłowego demona eBUS autorstwa Johna Baiera.
+  - Adapter eBUS, który widzisz w tym filmie, pochodzi z tego samego projektu.
+  - Jeśli go potrzebujesz, kup go z oficjalnych źródeł podanych na adapter kropka ebusd kropka eu. W ten sposób wspierasz projekt, na którym to wszystko się opiera.
+  wiring:
+  - Otwórz pokrywę skrzynki sterującej stacji hydraulicznej.
+  - Znajdź zacisk eBUS. To dwużyłowe złącze, zwykle oznaczone jako BUS.
+  - eBUS nie ma polaryzacji, więc oba przewody można podłączyć w dowolnej kolejności.
+  - Podłącz adapter, zasil go i poczekaj, aż dioda stanu pokaże, że znalazł magistralę.
+  - Zamknij pokrywę i zapisz adres IP adaptera w swojej sieci. Za chwilę będzie potrzebny.
+  mosquitto:
+  - W Home Assistant Genia Air potrzebuje brokera MQTT.
+  - Jeśli jeszcze go nie masz, zainstaluj oficjalny broker Mosquitto ze sklepu z aplikacjami i uruchom go.
+  install:
+  - Teraz dodaj repozytorium Genia Air.
+  - Przejdź do Ustawienia, Aplikacje, i kliknij Zainstaluj aplikację.
+  - Otwórz menu w prawym górnym rogu, wybierz Repozytoria, wklej adres widoczny na ekranie i kliknij Dodaj.
+  - Vaillant Genia Air pojawia się teraz w sklepie z aplikacjami. Otwórz ją i kliknij Zainstaluj.
+  - Zawiera już ebusd i definicje komunikatów Vaillant, więc nie musisz instalować niczego więcej.
+  configure:
+  - Otwórz kartę Konfiguracja.
+  - W polu e bus device wpisz adres swojego adaptera. Dla adaptera sieciowego to e en es, dwukropek, jego adres IP, dwukropek, dziewięć dziewięć dziewięć dziewięć.
+  - Starsze adaptery używają zamiast tego e en ha, a dla adaptera USB wystarczy ścieżka urządzenia.
+  - Pozostałe opcje mogą zostać przy wartościach domyślnych.
+  - Zapisz, wróć do karty Info, włącz pokazywanie w pasku bocznym i kliknij Uruchom.
+  - W dzienniku zobaczysz, jak ebusd łączy się z magistralą i zaczynają napływać komunikaty z twojej pompy ciepła.
+  first_look:
+  - Otwórz Genia Air z paska bocznego i przejdź od razu do karty Diagnostyka.
+  - Sprawdź, czy wykryto twoją jednostkę zarządzania ciepłem i regulator pokojowy, i przeczytaj komunikat o zgodności.
+  - Jeśli twój sprzęt różni się od testowanej jednostki, przycisk Report on GitHub otwiera anonimowy raport zgodności. Nigdy nie zawiera twoich odczytów ani danych sieciowych.
+  - Następnie przejdź do przeglądu.
+  - Delta T to różnica między wodą zasilającą a powrotną. To najszybszy sposób, by zobaczyć, jak zachowuje się twoja instalacja.
+  - A COP mówi, ile ciepła dostajesz z każdej jednostki energii elektrycznej. Dla pompy ciepła powietrze woda typowa wartość to od dwóch do pięciu.
+  control:
+  - Domyślnie aplikacja działa tylko w trybie odczytu. Nic nie zostanie zapisane w twojej pompie ciepła, dopóki na to nie pozwolisz.
+  - Najpierw obserwuj przez chwilę odczyty i upewnij się, że mają sens.
+  - Gdy będziesz gotowy, zaznacz pole potwierdzenia i włącz pełne sterowanie.
+  - Sesja sterowania zawsze wygasa sama, a aplikacja regularnie prosi cię o potwierdzenie, że wartości nadal są poprawne.
+  - Jeśli nie odpowiesz albo połączenie z magistralą zostanie utracone, sama się wycofa.
+  - A wycofanie oznacza prawdziwe przywrócenie. Każda wartość wraca dokładnie tam, gdzie była przed rozpoczęciem sesji.
+  more:
+  - Jest jeszcze wiele do odkrycia. Wykresy, dziennik decyzji optymalizatora i urządzenie w Home Assistant z encjami do twoich własnych automatyzacji.
+  outro:
+  - Nie masz jeszcze adaptera? Włącz simulate hardware i wypróbuj całą aplikację na realistycznych danych testowych.
+  - Projekt jest otwartoźródłowy i wciąż w wersji beta, na razie przetestowany na jednej prawdziwej jednostce.
+  - Jeśli twoja jest inna, twój raport zgodności to najlepszy sposób, by pomóc.
+  - Link znajdziesz w opisie. Dzięki za obejrzenie.

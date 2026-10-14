@@ -1,0 +1,71 @@
+<!doctype html><meta charset="utf-8"><link rel="stylesheet" href="base.css"><script src="common.js"></script>
+<style>
+  .stage { position:absolute; inset:0; }
+  .node { position:absolute; width:250px; padding:26px 18px 22px; border-radius:22px; background:var(--panel);
+          border:2px solid var(--line); text-align:center; animation-name:pop; animation-duration:.6s; }
+  .node svg { width:120px; height:120px; display:block; margin:0 auto 14px; }
+  .node .l { font-size:27px; font-weight:600; line-height:1.15; }
+  .node.ha { width:360px; border-color:#2b6cb0; }
+  .chip { display:inline-block; margin:8px 6px 0; padding:6px 14px; border-radius:999px; font-size:22px;
+          background:#0e2a44; color:var(--accent); border:1px solid #1e4a72; animation-name:fadeUp; animation-duration:.5s; }
+  .wire { position:absolute; height:6px; border-radius:3px; background:var(--accent); transform-origin:left center;
+          animation:grow .7s both cubic-bezier(.2,.7,.2,1); }
+  @keyframes grow { from { transform:scaleX(0); } to { transform:scaleX(1); } }
+  .tag { position:absolute; font-size:24px; color:var(--accent); font-weight:600; animation-name:fadeIn; animation-duration:.5s; }
+  .nocloud { position:absolute; left:50%; top:820px; transform:translateX(-50%); display:flex; align-items:center; gap:18px;
+             font-size:40px; font-weight:700; color:var(--green); animation-name:pop; animation-duration:.6s; }
+  .nocloud svg { width:84px; height:84px; }
+</style>
+<body class="solid"><div class="stage">
+  <!-- heat pump -->
+  <div class="node anim" style="left:70px; top:330px" data-at="cues.0">
+    <svg viewBox="0 0 120 120"><rect x="8" y="22" width="104" height="80" rx="10" fill="#1b2742" stroke="#93a4bd" stroke-width="3"/>
+      <circle cx="48" cy="62" r="28" fill="none" stroke="#93a4bd" stroke-width="3"/>
+      <path d="M48 62 L48 38 M48 62 L69 74 M48 62 L27 74" stroke="#38bdf8" stroke-width="5" stroke-linecap="round"/>
+      <rect x="84" y="36" width="18" height="52" rx="3" fill="#0b1220" stroke="#93a4bd" stroke-width="2"/></svg>
+    <div class="l" data-t="req.heat_pump"></div></div>
+  <div class="wire" style="left:322px; top:470px; width:96px; animation-delay:var(--d0)"></div>
+  <!-- hydraulic station -->
+  <div class="node anim" style="left:420px; top:330px" data-at="cues.0">
+    <svg viewBox="0 0 120 120"><rect x="18" y="10" width="84" height="100" rx="8" fill="#e8edf3" stroke="#93a4bd" stroke-width="3"/>
+      <rect x="32" y="22" width="56" height="26" rx="4" fill="#0b1220"/><text x="60" y="41" fill="#38bdf8" font-size="16" text-anchor="middle" font-family="DejaVu Sans Mono">16.0</text>
+      <rect x="30" y="80" width="12" height="16" fill="#e46a6a"/><rect x="46" y="80" width="12" height="16" fill="#f0a35e"/><rect x="62" y="80" width="12" height="16" fill="#5aa0e6"/><rect x="78" y="80" width="12" height="16" fill="#e8d75a"/></svg>
+    <div class="l" data-t="req.station"></div></div>
+  <!-- eBUS wire -->
+  <div class="wire" style="left:672px; top:470px; width:226px; background:var(--orange)" id="w1"></div>
+  <div class="tag anim" style="left:690px; top:420px; color:var(--orange)" data-at="cues.0" data-t="req.bus"></div>
+  <!-- adapter -->
+  <div class="node anim" style="left:900px; top:330px" data-at="cues.1">
+    <svg viewBox="0 0 120 120"><rect x="20" y="30" width="80" height="60" rx="8" fill="#16361f" stroke="#22c55e" stroke-width="3"/>
+      <rect x="32" y="44" width="30" height="22" rx="3" fill="#0b1220"/><circle cx="82" cy="50" r="7" fill="#22c55e"/>
+      <path d="M60 22 q12 -14 24 0 M66 16 q6 -8 12 0" stroke="#38bdf8" stroke-width="4" fill="none" stroke-linecap="round"/></svg>
+    <div class="l" data-t="req.adapter"></div></div>
+  <div class="wire" style="left:1152px; top:470px; width:96px" id="w2"></div>
+  <!-- network -->
+  <div class="node anim" style="left:1250px; top:330px; width:220px" data-at="cues.1">
+    <svg viewBox="0 0 120 120"><rect x="16" y="64" width="88" height="34" rx="8" fill="#1b2742" stroke="#93a4bd" stroke-width="3"/>
+      <circle cx="36" cy="81" r="5" fill="#22c55e"/><circle cx="54" cy="81" r="5" fill="#22c55e"/>
+      <path d="M40 46 q20 -22 40 0 M50 54 q10 -10 20 0" stroke="#38bdf8" stroke-width="5" fill="none" stroke-linecap="round"/></svg>
+    <div class="l" data-t="req.lan"></div></div>
+  <div class="wire" style="left:1472px; top:470px; width:60px" id="w3"></div>
+  <!-- Home Assistant -->
+  <div class="node ha anim" style="left:1530px; top:250px; width:340px" data-at="cues.2">
+    <svg viewBox="0 0 120 120"><path d="M60 14 L106 54 L96 54 L96 104 L24 104 L24 54 L14 54 Z" fill="#18bcf2"/>
+      <circle cx="60" cy="68" r="8" fill="#fff"/><circle cx="44" cy="84" r="6" fill="#fff"/><circle cx="76" cy="84" r="6" fill="#fff"/>
+      <path d="M60 68 L60 100 M60 80 L44 84 M60 88 L76 84" stroke="#fff" stroke-width="4"/></svg>
+    <div class="l" data-t="req.ha"></div>
+    <div><span class="chip anim" data-at="cues.2" data-t="req.mqtt"></span><span class="chip anim" data-at="cues.2" data-t="req.app"></span></div></div>
+  <div class="nocloud anim" data-at="cues.3">
+    <svg viewBox="0 0 84 84"><path d="M22 60 h40 a14 14 0 0 0 0 -28 a20 20 0 0 0 -38 -4 a14 14 0 0 0 -2 32 z" fill="none" stroke="#22c55e" stroke-width="5"/>
+      <path d="M12 12 L72 72" stroke="#ef4444" stroke-width="7" stroke-linecap="round"/></svg>
+    <span data-t="req.nocloud"></span></div>
+</div>
+<script>
+  // wires draw in with the node they lead to
+  document.addEventListener("DOMContentLoaded", () => {
+    const c = (window.CTX || {}).cues || [0, 0, 0, 0];
+    const set = (sel, t) => document.querySelectorAll(sel).forEach(e => e.style.animationDelay = (t + .3) + "s");
+    document.querySelector(".wire").style.animationDelay = (c[0] + .3) + "s";
+    set("#w1", c[0] + .4); set("#w2", c[1] + .3); set("#w3", c[2]);
+  });
+</script>

@@ -1,0 +1,16 @@
+<!doctype html><meta charset="utf-8"><link rel="stylesheet" href="base.css"><script src="common.js"></script>
+<style>
+  .bg { position:absolute; inset:0; background-size:cover; background-position:top center; animation:kb 30s linear both; }
+  @keyframes kb { from { transform:scale(1.02); } to { transform:scale(1.12) translateY(-30px); } }
+  .shade { position:absolute; inset:0; background:linear-gradient(180deg, rgba(11,18,32,0) 45%, rgba(11,18,32,.92) 78%); }
+  .lt { position:absolute; left:110px; bottom:110px; animation-name:fadeUp; animation-duration:.7s; }
+  .lt h1 { font-size:64px; font-weight:800; }
+  .lt h2 { font-size:40px; font-weight:500; color:var(--muted); margin-top:4px; }
+  .buy { margin-top:26px; display:inline-flex; align-items:center; gap:22px; padding:16px 28px; border-radius:16px; background:#0e2a44;
+         border:2px solid #1e4a72; font-size:38px; font-weight:600; animation-name:pop; animation-duration:.6s; }
+  .buy .mono { color:var(--accent); font-size:42px; }
+</style>
+<body class="solid"><div class="bg" id="bg"></div><div class="shade"></div>
+<div class="lt anim" data-at="cues.0"><h1 data-t="credit.title"></h1><h2 data-t="credit.by"></h2>
+  <div class="buy anim" data-at="cues.1"><span data-t="credit.buy"></span><span class="mono" data-t="credit.url"></span></div></div>
+<script>document.addEventListener("DOMContentLoaded", () => { const b = (window.CTX||{}).background; if (b) document.getElementById("bg").style.backgroundImage = `url("${b}")`; });</script>
