@@ -54,8 +54,7 @@ es:
     app: App Genia Air
     nocloud: Sin nube
   safety:
-    title: Primero
-    la seguridad: null
+    title: Primero, la seguridad
     l1: Corta la alimentación
     l2: Sigue el manual de instalación
     l3: Si tienes dudas, consulta a un instalador cualificado
