@@ -1,0 +1,16 @@
+<!doctype html><meta charset="utf-8"><link rel="stylesheet" href="base.css"><script src="common.js"></script>
+<style>
+  .bg { position:absolute; inset:0; background-size:cover; background-position:center; filter:saturate(1.2) brightness(.75); transform:scale(1.15) rotate(-2deg); }
+  .shade { position:absolute; inset:0; background:linear-gradient(90deg, rgba(11,18,32,.96) 0%, rgba(11,18,32,.85) 45%, rgba(11,18,32,.1) 100%); }
+  .t { position:absolute; left:90px; top:150px; width:1250px; }
+  .t .k { font-size:58px; font-weight:800; color:var(--accent); letter-spacing:.5px; }
+  .t h1 { font-size:132px; line-height:1.0; font-weight:900; margin-top:10px; }
+  .t h1 span { color:var(--orange); }
+  .badges { margin-top:48px; display:flex; gap:22px; }
+  .badges b { font-size:46px; padding:14px 28px; border-radius:16px; background:#0e2a44; border:3px solid #1e4a72; color:#e5edf7; }
+  .badges b.g { background:#0f2e1c; border-color:#22c55e; color:#86efac; }
+</style>
+<body class="solid"><div class="bg" id="bg"></div><div class="shade"></div>
+<div class="t"><div class="k" data-t="thumb.kicker"></div><h1><span>Genia Air</span><br><span style="color:#e5edf7" data-t="thumb.title"></span></h1>
+  <div class="badges"><b class="g" data-t="thumb.b1"></b><b data-t="thumb.b2"></b></div></div>
+<script>document.addEventListener("DOMContentLoaded", () => { const b = (window.CTX||{}).background; if (b) document.getElementById("bg").style.backgroundImage = `url("${b}")`; });</script>

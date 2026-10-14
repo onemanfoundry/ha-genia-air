@@ -37,6 +37,11 @@ en:
   - 'Narration: AI voice (Chatterbox, MIT) cloned from the author'
   - Not affiliated with or endorsed by Vaillant. Vaillant and Genia Air are trademarks of their respective owners.
   demo: Simulated hardware · demo data
+  thumb:
+    kicker: VAILLANT HEAT PUMP
+    title: in Home Assistant
+    b1: 100% local
+    b2: Install guide
 es:
   req:
     heat_pump: Bomba de calor
@@ -76,6 +81,11 @@ es:
   - 'Locución: voz IA (Chatterbox, MIT) clonada del autor'
   - Sin relación ni respaldo de Vaillant. Vaillant y Genia Air son marcas de sus respectivos propietarios.
   demo: Hardware simulado · datos de demostración
+  thumb:
+    kicker: BOMBA DE CALOR VAILLANT
+    title: en Home Assistant
+    b1: 100% local
+    b2: Guía de instalación
 de:
   req:
     heat_pump: Wärmepumpe
@@ -114,6 +124,11 @@ de:
   - 'Sprecher: KI-Stimme (Chatterbox, MIT), vom Autor geklont'
   - Keine Verbindung zu Vaillant und nicht von Vaillant unterstützt. Vaillant und Genia Air sind Marken ihrer jeweiligen Inhaber.
   demo: Simulierte Hardware · Demodaten
+  thumb:
+    kicker: VAILLANT WÄRMEPUMPE
+    title: in Home Assistant
+    b1: 100% lokal
+    b2: Installationsanleitung
 fr:
   req:
     heat_pump: Pompe à chaleur
@@ -152,6 +167,11 @@ fr:
   - 'Voix : voix IA (Chatterbox, MIT) basée sur celle de l''auteur'
   - Sans lien avec Vaillant ni approuvé par Vaillant. Vaillant et Genia Air sont des marques de leurs propriétaires respectifs.
   demo: Matériel simulé · données de démonstration
+  thumb:
+    kicker: POMPE À CHALEUR VAILLANT
+    title: dans Home Assistant
+    b1: 100% local
+    b2: Guide d'installation
 it:
   req:
     heat_pump: Pompa di calore
@@ -190,6 +210,11 @@ it:
   - 'Voce: voce IA (Chatterbox, MIT) clonata dall''autore'
   - Non affiliato né approvato da Vaillant. Vaillant e Genia Air sono marchi dei rispettivi proprietari.
   demo: Hardware simulato · dati dimostrativi
+  thumb:
+    kicker: POMPA DI CALORE VAILLANT
+    title: in Home Assistant
+    b1: 100% locale
+    b2: Guida all'installazione
 nl:
   req:
     heat_pump: Warmtepomp
@@ -228,6 +253,11 @@ nl:
   - 'Stem: AI-stem (Chatterbox, MIT) gekloond van de maker'
   - Niet verbonden aan of goedgekeurd door Vaillant. Vaillant en Genia Air zijn merken van hun respectieve eigenaren.
   demo: Gesimuleerde hardware · demogegevens
+  thumb:
+    kicker: VAILLANT WARMTEPOMP
+    title: in Home Assistant
+    b1: 100% lokaal
+    b2: Installatiegids
 pl:
   req:
     heat_pump: Pompa ciepła
@@ -266,3 +296,8 @@ pl:
   - 'Lektor: głos AI (Chatterbox, MIT) sklonowany od autora'
   - Brak powiązań z firmą Vaillant ani jej poparcia. Vaillant i Genia Air są znakami towarowymi ich właścicieli.
   demo: Symulowany sprzęt · dane demonstracyjne
+  thumb:
+    kicker: POMPA CIEPŁA VAILLANT
+    title: w Home Assistant
+    b1: 100% lokalnie
+    b2: Instrukcja instalacji

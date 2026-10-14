@@ -14,6 +14,7 @@ Usage: python tts.py --script-dir script --ref voz/ref_sergio.wav --out out/tts 
 from __future__ import annotations
 
 import argparse
+import copy
 import difflib
 import json
 import re
@@ -52,12 +53,16 @@ def main() -> None:
     ap.add_argument("--good", type=float, default=0.97, help="stop early when a take scores this high")
     ap.add_argument("--only", default="", help="comma list of scene ids to (re)generate")
     ap.add_argument("--vc-langs", default="", help="comma list of languages to voice-convert instead of clone")
+    ap.add_argument("--redo", action="store_true", help="regenerate every line, not only changed ones")
     args = ap.parse_args()
 
     from chatterbox.mtl_tts import ChatterboxMultilingualTTS
     from faster_whisper import WhisperModel
 
     tts = ChatterboxMultilingualTTS.from_pretrained(device="cuda")
+    # generate() without a prompt reuses whatever voice was conditioned last;
+    # keep the model's own default voice to restore before native takes
+    native_conds = copy.deepcopy(tts.conds)
     vc_langs = set(filter(None, args.vc_langs.split(",")))
     vc = None
     if vc_langs:
@@ -76,11 +81,13 @@ def main() -> None:
             key = f"{sid}_{idx:02d}"
             mode = "vc" if lang in vc_langs else "clone"
             done = manifest.get(key)
-            if done and done["text"] == text and done.get("mode", "clone") == mode and not (only and sid in only):
+            if (done and done["text"] == text and done.get("mode", "clone") == mode and not args.redo
+                    and not (only and sid in only)):
                 continue
             best = None
             for t in range(takes):
                 if mode == "vc":
+                    tts.conds = native_conds
                     native = tts.generate(text, language_id=lang).squeeze(0).cpu().numpy()
                     tmp = out_dir / f"{key}.native.wav"
                     sf.write(tmp, native, tts.sr)
