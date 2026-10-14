@@ -358,6 +358,7 @@ class Builder:
             "-map", "0:v", "-map", "[a]", "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart",
             final.as_posix())
         self.write_srt(out_dir / f"genia-air-install-{self.lang}.srt")
+        (out_dir / f"genia-air-install-{self.lang}.starts.json").write_text(json.dumps(starts, indent=1))
         self.write_youtube(out_dir / f"genia-air-install-{self.lang}.youtube.txt", starts)
         return final
 
@@ -370,7 +371,9 @@ class Builder:
         for sid, t in starts.items():
             if sid in names and sid != "hook_short":
                 if t - marks[-1][0] < 10:
-                    continue
+                    if len(marks) == 1:
+                        continue  # never move the 0:00 chapter
+                    marks.pop()  # previous chapter too short: fold it into the one before
                 marks.append((t, names[sid]))
         chapters = "\n".join(f"{int(t // 60)}:{int(t % 60):02d} {n}" for t, n in marks)
         path.write_text(yt["title"] + "\n\n" + yt["description"].replace("{chapters}", chapters))
