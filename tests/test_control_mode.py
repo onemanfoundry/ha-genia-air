@@ -460,3 +460,35 @@ def test_simulate_mode_full_control_round_trip(mod, _clean_state, monkeypatch):
 
     assert mod.control_is_active() is False
     assert mod._field("ctls2", "z1ManualTemp", "tempv") == baseline
+
+
+def test_decision_log_survives_restart(mod):
+    """The Optimizer tab's log must come from the database, not only memory."""
+    mod.db_log_decision("test_kind", "logged before a restart", {"k": 1})
+    mod.LAST_DECISIONS.clear()  # what a fresh add-on start looks like
+    rows = mod.app.test_client().get("/api/decisions?limit=500").get_json()
+    assert any(r["kind"] == "test_kind" and r["detail"] == {"k": 1} for r in rows)
+
+
+def test_two_decisions_in_the_same_second_are_both_stored(mod, monkeypatch):
+    monkeypatch.setattr(mod.time, "time", lambda: 1_800_000_000.0)
+    mod.db_log_decision("same_second", "first", {})
+    mod.db_log_decision("same_second", "second", {})
+    monkeypatch.undo()
+    rows = mod.app.test_client().get("/api/decisions?limit=500").get_json()
+    assert [r["reason"] for r in rows if r["kind"] == "same_second"] == ["first", "second"]
+
+
+def test_decisions_table_migrates_from_ts_primary_key(mod, tmp_path, monkeypatch):
+    """A pre-0.7.5 database (ts PRIMARY KEY) keeps its rows and gains an id key."""
+    import sqlite3
+    db = tmp_path / "old.db"
+    with sqlite3.connect(db) as conn:
+        conn.execute("CREATE TABLE decisions (ts INTEGER PRIMARY KEY, kind TEXT, reason TEXT, detail TEXT)")
+        conn.execute("INSERT INTO decisions VALUES (1, 'k', 'old row', '{}')")
+    monkeypatch.setattr(mod, "db_connect", lambda: sqlite3.connect(db))
+    mod.db_init()
+    with sqlite3.connect(db) as conn:
+        cols = [r[1] for r in conn.execute("PRAGMA table_info(decisions)")]
+        assert "id" in cols
+        assert conn.execute("SELECT reason FROM decisions").fetchall() == [("old row",)]

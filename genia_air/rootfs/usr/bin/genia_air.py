@@ -35,7 +35,7 @@ from flask import Flask, abort, jsonify, request
 # Config & logging
 # ───────────────────────────────────────────────────────────────────────────
 
-VERSION = "0.7.4"
+VERSION = "0.7.5"
 
 
 def _load_options() -> dict:
@@ -290,7 +290,8 @@ def db_init() -> None:
             CREATE INDEX IF NOT EXISTS ix_snapshots_series ON snapshots(series, ts);
 
             CREATE TABLE IF NOT EXISTS decisions (
-                ts          INTEGER PRIMARY KEY,
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                ts          INTEGER,
                 kind        TEXT,
                 reason      TEXT,
                 detail      TEXT
@@ -303,6 +304,27 @@ def db_init() -> None:
             );
             """
         )
+        _migrate_decisions(conn)
+
+
+def _migrate_decisions(conn) -> None:
+    """Up to 0.7.4 `decisions.ts` was the primary key, so a second decision
+    in the same second failed to insert (silently). Move to an id key."""
+    cols = [row[1] for row in conn.execute("PRAGMA table_info(decisions)")]
+    if "id" not in cols:
+        conn.executescript(
+            """
+            ALTER TABLE decisions RENAME TO decisions_pre075;
+            CREATE TABLE decisions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER, kind TEXT, reason TEXT, detail TEXT
+            );
+            INSERT INTO decisions(ts, kind, reason, detail)
+                SELECT ts, kind, reason, detail FROM decisions_pre075 ORDER BY ts;
+            DROP TABLE decisions_pre075;
+            """
+        )
+        log.info("Migrated decisions table to an id primary key")
+    conn.execute("CREATE INDEX IF NOT EXISTS ix_decisions_ts ON decisions(ts)")
 
 
 def db_init_safe() -> None:
@@ -324,7 +346,7 @@ def db_init_safe() -> None:
                 CREATE INDEX IF NOT EXISTS ix_snapshots_series_ts
                     ON snapshots(series, ts);
                 CREATE TABLE IF NOT EXISTS decisions (
-                    ts INTEGER PRIMARY KEY, kind TEXT, reason TEXT, detail TEXT
+                    id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER, kind TEXT, reason TEXT, detail TEXT
                 );
                 CREATE TABLE IF NOT EXISTS errors (
                     ts INTEGER PRIMARY KEY, code TEXT, detail TEXT
@@ -362,8 +384,8 @@ def db_log_decision(kind: str, reason: str, detail: dict) -> None:
                 "INSERT INTO decisions(ts, kind, reason, detail) VALUES (?, ?, ?, ?)",
                 (ts, kind, reason, json.dumps(detail)),
             )
-    except Exception:
-        pass
+    except Exception as exc:
+        log.warning("Could not store decision %s in the database: %s", kind, exc)
     record = {"ts": ts, "kind": kind, "reason": reason, "detail": detail}
     LAST_DECISIONS[ts] = record
     while len(LAST_DECISIONS) > 200:
@@ -1609,8 +1631,19 @@ def api_history():
 
 @app.route("/api/decisions")
 def api_decisions():
+    """Decision log, oldest first. Read from the database so it survives
+    add-on restarts (the in-memory list starts empty after every start)."""
     limit = int(request.args.get("limit", "50"))
-    return jsonify(list(LAST_DECISIONS.values())[-limit:])
+    try:
+        with DB_LOCK, db_connect() as conn:
+            rows = conn.execute(
+                "SELECT ts, kind, reason, detail FROM decisions ORDER BY id DESC LIMIT ?", (limit,)
+            ).fetchall()
+        return jsonify([{"ts": ts, "kind": kind, "reason": reason, "detail": json.loads(detail or "{}")}
+                        for ts, kind, reason, detail in reversed(rows)])
+    except Exception as exc:  # noqa: BLE001 - fall back to what this run logged
+        log.warning("Decision log query failed, serving in-memory copy: %s", exc)
+        return jsonify(list(LAST_DECISIONS.values())[-limit:])
 
 
 @app.route("/api/health")
@@ -1906,7 +1939,7 @@ select{background:var(--b);border:1px solid #475569;color:var(--t);border-radius
 table{width:100%;border-collapse:collapse;font-size:.78rem}
 td,th{padding:.4rem .5rem;border-bottom:1px solid var(--b);text-align:left}
 th{color:var(--m);font-weight:500}
-.diag-old{color:var(--y)}.diag-stale{color:var(--r)}.diag-fresh{color:var(--g)}
+.diag-old{color:var(--y)}.diag-stale{color:var(--r)}.diag-fresh{color:var(--g)}.diag-ret{color:#94a3b8}
 .dec-time{color:var(--m);font-size:.7rem;white-space:nowrap}
 .health-card{padding:.8rem 1rem;border-radius:.6rem;margin-bottom:1rem;font-size:.85rem;border:1px solid}
 .health-card.ok{background:rgba(74,222,128,.07);border-color:rgba(74,222,128,.3);color:var(--g)}
@@ -1963,7 +1996,7 @@ input:checked+.tslide:before{transform:translateX(20px);background:#0f172a}
 <div id="t-charts" class="tab-content">
   <div class="actions">
     <span class="label" style="margin:0">Window:</span>
-    <select id="chart-window">
+    <select id="chart-window" onchange="loadCharts()">
       <option value="6">6 h</option>
       <option value="24" selected>24 h</option>
       <option value="72">72 h</option>
@@ -2275,7 +2308,14 @@ async function loadDecisions(){
 let CHARTS_BUSY = false;
 async function loadSeries(series, hours){
   const data = await api(`/api/history?series=${series}&hours=${hours}`);
-  return data.map(p=>({x: p.ts*1000, y: p.value}));
+  // Snapshots are taken every minute while a value is known; a longer gap
+  // means "no data" and must show as a break, not a line drawn across it.
+  const out = []; let prev = null;
+  for (const p of data){
+    if (prev !== null && p.ts - prev > 300) out.push({x: (prev + 60)*1000, y: null});
+    out.push({x: p.ts*1000, y: p.value}); prev = p.ts;
+  }
+  return out;
 }
 function destroyChart(canvasId){
   // Use Chart.js' own global registry so we catch any chart attached to this
@@ -2413,7 +2453,7 @@ async function loadDiag(){
     const tb = $("diag-tbody"); tb.innerHTML="";
     if(!msgs.length){ tb.innerHTML='<tr><td colspan="4" class="empty">No ebusd messages yet.</td></tr>'; return; }
     msgs.forEach(m=>{
-      const ageClass = m.age_seconds==null?"diag-stale":m.age_seconds<120?"diag-fresh":m.age_seconds<600?"diag-old":"diag-stale";
+      const ageClass = m.age_seconds==null?"diag-ret":m.age_seconds<120?"diag-fresh":m.age_seconds<600?"diag-old":"diag-stale";
       const fields = Object.entries(m.fields).map(([k,v])=>`<span class="badge bg-m">${k}=${v}</span>`).join(" ");
       const tr = document.createElement("tr");
       tr.innerHTML = `<td>${m.circuit}</td><td>${m.msg}</td><td>${fields}</td><td class="${ageClass}" title="${m.age_seconds==null?"Last value replayed by the MQTT broker at start-up; not refreshed since":""}">${m.age_seconds==null?"retained":fmtAge(m.age_seconds)}</td>`;

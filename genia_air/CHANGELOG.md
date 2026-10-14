@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.7.5 — 2026-10-14
+
+- **Charts show gaps instead of inventing lines.** When a series has no
+  data for more than 5 minutes (compressor off, adapter unreachable), the
+  chart breaks the line; it used to draw a straight diagonal across days.
+- **Optimizer decision log survives restarts.** It was served from memory
+  only, so the tab said "No decisions logged yet" after every add-on start
+  although every decision is stored in the database. It now reads the
+  database (falling back to memory if that fails).
+- Two optimizer decisions in the same second no longer lose the second
+  one: the `decisions` table keyed rows by the second, and the failed
+  insert was swallowed. It now has its own id (existing rows are migrated
+  on start) and a failed write is logged.
+- Changing the chart window (6 h … 7 days) reloads the charts; it used to
+  need a click on Refresh.
+- Diagnostics shows replayed (`retained`) values in grey rather than red:
+  for settings that rarely change, a replayed value is normal, not an error.
+
 ## 0.7.4 — 2026-10-14
 
 - **Compatibility table fixed for address 0x76.** It listed `VWZ`
