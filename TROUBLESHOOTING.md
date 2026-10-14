@@ -103,6 +103,38 @@ on change, so live quantities (flow temperatures, compressor state) come back
 first, while `ctls2` configuration parameters trickle in over hours. Judge recovery
 by whether the *moving* values move, not by an entity count.
 
+## The log is full of `read timeout` / `SYN received`, and Diagnostics says "No bus scan result yet"
+
+Passive telemetry (what the heat pump broadcasts on its own) keeps arriving,
+but everything ebusd **asks** for — the bus scan, active reads and, if you
+enable full control, writes — fails:
+
+```
+[bus error] send to 15: ERR: read timeout
+[main error] scan config 08: ERR: SYN received
+```
+
+**Cause:** the network link to the adapter is too slow. On eBUS a slave has
+to answer within a few milliseconds and ebusd waits 25 ms by default; if the
+adapter sits on congested WiFi, its answers arrive late and are discarded.
+Check it from any machine on your LAN:
+
+```
+ping -c 20 <adapter-ip>
+```
+
+Anything above ~10 ms on average, or spikes into the hundreds, is enough to
+cause this. The adapter's own `info` (ebusd TCP command, or the add-on log at
+start-up) shows `max symbol latency` — the same story.
+
+**Fix, best first:**
+
+1. Give the adapter a better link: Ethernet if your adapter has it, or a WiFi
+   access point close to it on a less crowded channel.
+2. Set `ebusd_latency_ms` (e.g. `50`) in the add-on configuration and
+   restart it. This tells ebusd to wait longer for answers. It does not make a
+   bad link good, but it gets the bus scan and most reads through.
+
 ## Prevention: turn off `auto_update` for the add-on
 
 Supervisor's automatic add-on update is what kills ebusd mid-connection in the

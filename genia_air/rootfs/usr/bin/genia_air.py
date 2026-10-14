@@ -35,7 +35,7 @@ from flask import Flask, abort, jsonify, request
 # Config & logging
 # ───────────────────────────────────────────────────────────────────────────
 
-VERSION = "0.7.1"
+VERSION = "0.7.2"
 
 
 def _load_options() -> dict:
@@ -151,6 +151,7 @@ else:
 CONF = {
     "ebus_device":           _opts.get("ebus_device", "ens:192.168.1.100:9999"),
     "ebusd_log_level":       str(_opts.get("ebusd_log_level", "notice")),
+    "ebusd_latency_ms":      int(_opts.get("ebusd_latency_ms", 0)),
     "topic_prefix":          _opts.get("topic_prefix", "ebusd"),
     "zone_count":            int(_opts.get("zone_count", 1)),
     "optimize_flow_temp":    bool(_opts.get("optimize_flow_temp", True)),
@@ -402,6 +403,10 @@ def _ebusd_argv() -> list[str]:
         "--mqttjson",
         "--mqttretain",
         "--log", f"all:{CONF['ebusd_log_level']}",
+        # extra transfer latency: needed when the adapter sits on a slow/lossy
+        # network link (e.g. WiFi), otherwise slave answers arrive after
+        # ebusd's 25 ms receive timeout and every active read fails
+        *(["--latency", str(CONF["ebusd_latency_ms"])] if CONF["ebusd_latency_ms"] else []),
     ]
 
 

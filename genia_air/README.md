@@ -134,6 +134,7 @@ configure `ebus_device` when you're ready to connect a real unit.
 | `summer_temp_limit` | `19.0` °C | Heat ↔ cool seasonal switchover pivot |
 | `optimize_cycle_minutes` | `5` | How often the optimizer evaluates |
 | `ebusd_log_level` | `notice` | `error`, `notice`, `info`, `debug` |
+| `ebusd_latency_ms` | `0` | Extra transfer latency passed to ebusd (`--latency`). Raise it (e.g. `50`) if the adapter is on WiFi and the log is full of `read timeout` / `SYN received` — see [TROUBLESHOOTING](../TROUBLESHOOTING.md) |
 | `control_session_minutes` | `60` | How long a full-control session lasts before auto-expiring — see [Safety model](#safety-model) |
 | `control_ack_grace_minutes` | `15` | How long a full-control session can go without a "still looks right" confirmation before auto-reverting |
 | `control_notify_target` | *(empty → `notify.notify`)* | HA notify service to call when a session auto-reverts, e.g. `notify.mobile_app_myphone` |

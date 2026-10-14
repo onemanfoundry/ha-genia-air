@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.7.2 — 2026-10-14
+
+- New option `ebusd_latency_ms` (default `0`, unchanged behaviour), passed
+  to ebusd as `--latency`. On a network adapter with a slow or lossy link
+  (an ESP32 adapter on congested 2.4 GHz WiFi measured 95–300 ms ping),
+  slave answers arrive after ebusd's 25 ms receive timeout, so every active
+  read and the bus scan fail with `read timeout` / `SYN received`, and the
+  Diagnostics compatibility check never gets a scan result. On that link,
+  `50` took active reads from 0/10 to 3/10 and let the scan identify the
+  HMU. It mitigates; the real fix is a better link (wired, or a stronger
+  WiFi signal).
+
 ## 0.7.1 — 2026-10-14
 
 - **UI and notifications are now English-only.** The Controls tab

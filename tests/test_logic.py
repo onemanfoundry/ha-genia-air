@@ -212,3 +212,16 @@ def test_message_schema_snapshot_has_field_names_not_values(mod):
     assert schema == [{"circuit": "hmu", "message": "Status01", "fields": ["0", "1"]}]
     # The whole point is anonymity: no live values anywhere in the output.
     assert "35.0" not in str(schema) and "30.0" not in str(schema)
+
+
+def test_ebusd_latency_only_passed_when_set(mod):
+    """`--latency` is opt-in: default argv is unchanged, a value adds it."""
+    original = mod.CONF["ebusd_latency_ms"]
+    try:
+        mod.CONF["ebusd_latency_ms"] = 0
+        assert "--latency" not in mod._ebusd_argv()
+        mod.CONF["ebusd_latency_ms"] = 50
+        argv = mod._ebusd_argv()
+        assert argv[argv.index("--latency") + 1] == "50"
+    finally:
+        mod.CONF["ebusd_latency_ms"] = original
