@@ -211,7 +211,7 @@ follows on the eBUS (address · manufacturer · product ID · firmware):
 |---|---|---|---|---|---|
 | `08` | Heat Management Unit | Vaillant | `HMU00` | `0901` | `5103` |
 | `15` | Sigma 2 room controller | Vaillant | `CTLS2` | `0509` | `1304` |
-| `76` | Compressor module | Vaillant | `VWZ`   | `0522` | `5103` |
+| `76` | Hydraulic station I/O module | Vaillant | `VWZIO` | `0202` | `0103` |
 
 **Read / write / optimizer support for that exact unit:**
 

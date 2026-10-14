@@ -259,3 +259,12 @@ def test_settings_do_not_expire(mod):
     _set(mod, "ctls2", "Hc1MaxFlowTempDesired", {"tempv": 34.5})
     mod.STATE[("ctls2", "Hc1MaxFlowTempDesired")]["ts"] = 1.0
     assert mod._field("ctls2", "Hc1MaxFlowTempDesired", "tempv") == 34.5
+
+
+def test_reference_unit_scan_is_fully_matched(mod, monkeypatch):
+    """The bus scan of the tested unit itself must come out as all-matched."""
+    scan = "08;Vaillant;HMU00;0901;5103\n15;Vaillant;CTLS2;0509;1304\n76;Vaillant;VWZIO;0202;0103\n"
+    monkeypatch.setattr(mod, "_ebusd_tcp_command", lambda *a, **k: scan)
+    compat = mod.compat_check()
+    assert len(compat["matched"]) == 3
+    assert not compat["mismatched_firmware"] and not compat["unknown_device"]

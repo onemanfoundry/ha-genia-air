@@ -50,7 +50,7 @@ Full user docs: [`genia_air/README.md`](genia_air/README.md).
   pre-filled, anonymized compatibility issue — see below.
 
 > ⚠️ **Tested against exactly one unit**: Vaillant HMU00 SW=0901/HW=5103 +
-> CTLS2 SW=0509/HW=1304 + VWZ SW=0522/HW=5103. Other firmware or models may
+> CTLS2 SW=0509/HW=1304 + VWZIO SW=0202/HW=0103. Other firmware or models may
 > work but are unverified — the Diagnostics tab checks your hardware against
 > this table and can generate an anonymous compatibility report to help add
 > support for yours. Details in [`genia_air/README.md`](genia_air/README.md#compatibility).

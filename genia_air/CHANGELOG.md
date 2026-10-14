@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.7.4 — 2026-10-14
+
+- **Compatibility table fixed for address 0x76.** It listed `VWZ`
+  SW0522/HW5103, copied from the header comment of the upstream
+  `76.vwz.csv` (another contributor's unit). The tested unit's bus scan
+  reports `VWZIO` SW0202/HW0103, so Diagnostics flagged the reference
+  hardware itself as an "untested model". Table, banner text and READMEs
+  now carry the scanned identity.
+
 ## 0.7.3 — 2026-10-14
 
 - **Stale values no longer look live.** ebusd publishes with

@@ -35,7 +35,7 @@ from flask import Flask, abort, jsonify, request
 # Config & logging
 # ───────────────────────────────────────────────────────────────────────────
 
-VERSION = "0.7.3"
+VERSION = "0.7.4"
 
 
 def _load_options() -> dict:
@@ -631,8 +631,10 @@ KNOWN_GOOD_DEVICES = {
               "circuit": "hmu", "role": "Heat Management Unit (outdoor unit ECU)"},
     "CTLS2": {"manufacturer": "Vaillant", "sw_version": "0509", "hw_version": "1304",
               "circuit": "ctls2", "role": "Sigma 2 room controller"},
-    "VWZ":   {"manufacturer": "Vaillant", "sw_version": "0522", "hw_version": "5103",
-              "circuit": "vwz", "role": "Compressor module (VWZ)"},
+    # what `scan result` reports for 0x76 on the tested unit (the 0522/5103 in
+    # 76.vwz.csv's header comes from the upstream contributor's unit, not ours)
+    "VWZIO": {"manufacturer": "Vaillant", "sw_version": "0202", "hw_version": "0103",
+              "circuit": "vwz", "role": "Hydraulic station I/O module (VWZIO)"},
 }
 
 
@@ -2354,7 +2356,7 @@ function renderCompatCard(devices, compat){
   const anyIssue = compat.mismatched_firmware.length || compat.unknown_device.length;
   el.innerHTML = `<h2 style="margin-top:0">Hardware compatibility</h2>${rows}` +
     `<div class="sub" style="margin-top:.5rem">${anyIssue
-      ? '⚠ Tested only against Vaillant HMU00 SW0901/HW5103 + CTLS2 SW0509/HW1304 + VWZ SW0522/HW5103. Yours differs — it may still work, but if something looks wrong, hit "Report on GitHub" below to help us support it.'
+      ? '⚠ Tested only against Vaillant HMU00 SW0901/HW5103 + CTLS2 SW0509/HW1304 + VWZIO SW0202/HW0103. Yours differs — it may still work, but if something looks wrong, hit "Report on GitHub" below to help us support it.'
       : '✓ Matches the exact hardware this add-on has been tested on.'}</div>`;
 }
 let LAST_COMPAT_REPORT = null;
