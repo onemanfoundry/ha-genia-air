@@ -268,3 +268,24 @@ def test_reference_unit_scan_is_fully_matched(mod, monkeypatch):
     compat = mod.compat_check()
     assert len(compat["matched"]) == 3
     assert not compat["mismatched_firmware"] and not compat["unknown_device"]
+
+
+def test_ebusd_write_verdicts_are_parsed_and_awaited(mod, monkeypatch):
+    """ebusd's log line is the only proof a write reached the controller."""
+    monkeypatch.setattr(mod, "EBUSD_PROCESS", object())
+    since = time.time()
+    mod._note_ebusd_line("2026-10-14 04:14:17.472 [mqtt notice] write ctls2 z1OpModeCooling: auto")
+    mod._note_ebusd_line("2026-10-14 04:14:01.757 [mqtt error] write ctls2 z1ManualTemp: ERR: read timeout")
+    res = mod.wait_write_results([("ctls2", "z1OpModeCooling"), ("ctls2", "z1ManualTemp"),
+                                  ("ctls2", "z1DayTemp")], since, timeout=0.2)
+    assert res[("ctls2", "z1OpModeCooling")] == (True, "auto")
+    assert res[("ctls2", "z1ManualTemp")] == (False, "ERR: read timeout")
+    assert res[("ctls2", "z1DayTemp")][0] is None  # no verdict before the deadline
+
+
+def test_old_verdicts_do_not_count_for_a_new_write(mod, monkeypatch):
+    monkeypatch.setattr(mod, "EBUSD_PROCESS", object())
+    mod._note_ebusd_line("[mqtt notice] write ctls2 z1NightTemp: 18")
+    later = time.time() + 1
+    res = mod.wait_write_results([("ctls2", "z1NightTemp")], later, timeout=0.1)
+    assert res[("ctls2", "z1NightTemp")][0] is None

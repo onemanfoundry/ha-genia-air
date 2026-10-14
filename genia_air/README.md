@@ -185,7 +185,7 @@ when MQTT isn't actually connected — the UI gets a clear error instead of
 a silent no-op.
 
 **Validated so far:** the full gating/snapshot/expiry/revert/fail-closed
-logic has 55 unit tests (`tests/test_control_mode.py` + `test_logic.py`),
+logic has 70 unit tests (`tests/test_control_mode.py` + `test_logic.py`),
 including a full enable → write → expire → restore round-trip run against
 the built-in [simulator](#try-it-without-hardware)
 (`test_simulate_mode_full_control_round_trip`). The addon has also been

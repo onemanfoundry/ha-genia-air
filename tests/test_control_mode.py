@@ -65,11 +65,18 @@ def _clean_state(mod, monkeypatch):
         lambda circuit, msg, value: (writes.append((circuit, msg, value)), write_ok["value"])[1]
     )
 
+    # ebusd's verdict on each write: applied unless a test says otherwise
+    verdicts: dict[str, tuple[bool | None, str]] = {}
+    monkeypatch.setattr(
+        mod, "wait_write_results",
+        lambda keys, since, timeout=0: {k: verdicts.get(k[1], (True, "ok")) for k in keys})
+
     notifications: list[tuple[str, str]] = []
     monkeypatch.setattr(mod, "_notify_ha",
                          lambda title, message: notifications.append((title, message)))
 
-    yield {"clock": clock, "writes": writes, "notifications": notifications, "write_ok": write_ok}
+    yield {"clock": clock, "writes": writes, "notifications": notifications, "write_ok": write_ok,
+           "verdicts": verdicts}
 
 
 def _seed_state(mod, circuit, msg, **fields):
@@ -492,3 +499,38 @@ def test_decisions_table_migrates_from_ts_primary_key(mod, tmp_path, monkeypatch
         cols = [r[1] for r in conn.execute("PRAGMA table_info(decisions)")]
         assert "id" in cols
         assert conn.execute("SELECT reason FROM decisions").fetchall() == [("old row",)]
+
+
+def test_restore_retries_failed_writes_and_reports_the_truth(mod, _clean_state):
+    """A restore must not claim success for values the bus refused."""
+    v = _clean_state["verdicts"]
+    v["z1ManualTemp"] = (False, "ERR: read timeout")
+    snapshot = {"z1ManualTemp": {"circuit": "ctls2", "value": 21.0},
+                "z1DayTemp": {"circuit": "ctls2", "value": 20.0}}
+    res = mod.control_restore(snapshot)
+    sent = [m for _, m, _ in _clean_state["writes"]]
+    assert sent.count("z1ManualTemp") == 2  # retried once
+    assert res["failed"] == ["z1ManualTemp"] and res["applied"] == ["z1DayTemp"]
+    assert "Could NOT restore: z1ManualTemp" in mod._restore_summary(res)
+
+
+def test_revert_notification_names_values_that_failed(mod, _clean_state):
+    _clean_state["verdicts"]["z1ManualTemp"] = (False, "ERR: SYN received")
+    _seed_state(mod, "ctls2", "z1ManualTemp", tempv=21.0)
+    mod.control_enable()
+    mod.control_revert("test")
+    title, message = _clean_state["notifications"][-1]
+    assert "Could NOT restore" in message and "z1ManualTemp" in message
+
+
+def test_api_write_reports_bus_failure(mod, _clean_state):
+    _clean_state["verdicts"]["z1DayTemp"] = (False, "ERR: read timeout")
+    mod.control_enable()
+    r = mod.app.test_client().post("/api/write", json={"circuit": "ctls2", "msg": "z1DayTemp", "value": 20.5})
+    assert r.status_code == 502 and r.get_json()["error"] == "ERR: read timeout"
+
+
+def test_api_write_confirmed_when_bus_applies_it(mod, _clean_state):
+    mod.control_enable()
+    r = mod.app.test_client().post("/api/write", json={"circuit": "ctls2", "msg": "z1DayTemp", "value": 20.5})
+    assert r.status_code == 200 and r.get_json()["confirmed"] is True

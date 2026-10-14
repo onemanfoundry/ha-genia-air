@@ -35,7 +35,7 @@ from flask import Flask, abort, jsonify, request
 # Config & logging
 # ───────────────────────────────────────────────────────────────────────────
 
-VERSION = "0.7.5"
+VERSION = "0.8.0"
 
 
 def _load_options() -> dict:
@@ -432,6 +432,54 @@ def _ebusd_argv() -> list[str]:
     ]
 
 
+# ── Write confirmation ───────────────────────────────────────────────────
+# Publishing to <prefix>/<circuit>/<msg>/set only hands the write to ebusd;
+# whether the controller accepted it is reported on ebusd's own log:
+#   [mqtt notice] write ctls2 z1OpModeCooling: auto
+#   [mqtt error] write ctls2 z1ManualTemp: ERR: read timeout
+WRITE_RESULT_RE = re.compile(r"\[mqtt (notice|error)\] write (\S+) (\S+): (.*)$")
+WRITE_RESULTS: dict[tuple[str, str], dict] = {}
+WRITE_COND = threading.Condition()
+WRITE_CONFIRM_TIMEOUT = 8.0
+
+
+def _record_write_result(circuit: str, msg: str, ok: bool, detail: str) -> None:
+    with WRITE_COND:
+        WRITE_RESULTS[(circuit, msg)] = {"ts": time.time(), "ok": ok, "detail": detail}
+        WRITE_COND.notify_all()
+
+
+def _note_ebusd_line(text: str) -> None:
+    m = WRITE_RESULT_RE.search(text)
+    if m:
+        _record_write_result(m.group(2), m.group(3), m.group(1) == "notice", m.group(4).strip())
+
+
+def wait_write_results(keys: list[tuple[str, str]], since: float,
+                       timeout: float = WRITE_CONFIRM_TIMEOUT) -> dict[tuple[str, str], tuple[bool | None, str]]:
+    """Wait (one shared deadline) for ebusd's verdict on each write published
+    at/after `since`. (True, value) = applied, (False, error) = refused or
+    failed on the bus, (None, reason) = no verdict (nothing running that
+    could confirm, or ebusd stayed silent until the deadline)."""
+    if EBUSD_PROCESS is None:
+        return {k: (None, "no ebusd running") for k in keys}
+    deadline = time.monotonic() + timeout  # wall clock can jump; the wait must not
+    out: dict[tuple[str, str], tuple[bool | None, str]] = {}
+    with WRITE_COND:
+        while True:
+            for k in keys:
+                r = WRITE_RESULTS.get(k)
+                if k not in out and r and r["ts"] >= since:
+                    out[k] = (r["ok"], r["detail"])
+            left = deadline - time.monotonic()
+            if len(out) == len(keys) or left <= 0:
+                break
+            WRITE_COND.wait(left)
+    for k in keys:
+        out.setdefault(k, (None, "no confirmation from ebusd"))
+    return out
+
+
 def _ebusd_pump_logs() -> None:
     """Background reader: forward ebusd stdout/stderr lines into our logger."""
     proc = EBUSD_PROCESS
@@ -446,6 +494,7 @@ def _ebusd_pump_logs() -> None:
             continue
         # Tag every ebusd line so logs are easy to grep.
         log.info("[ebusd] %s", text)
+        _note_ebusd_line(text)
 
 
 def ebusd_start() -> None:
@@ -556,6 +605,7 @@ class _SimulatedMqttClient:
         if len(parts) != 4 or parts[3] != "set":
             return
         _, circuit, msg, _ = parts
+        _record_write_result(circuit, msg, True, f"{payload} (simulated)")
         key_cast = WRITABLE_FIELD_KEY.get(msg)
         if not key_cast:
             return
@@ -1138,14 +1188,45 @@ def control_snapshot() -> dict:
     return snap
 
 
-def control_restore(snapshot: dict) -> None:
+def control_restore(snapshot: dict) -> dict:
     """Re-publish every snapshotted value that was actually known — an actual
     restore, not just a stop. Fields whose value was None at snapshot time
     (never read from the bus) can't be restored to anything meaningful and
-    are skipped."""
-    for msg, entry in (snapshot or {}).items():
-        if entry.get("value") is not None:
-            mqtt_publish_write(entry["circuit"], msg, entry["value"])
+    are skipped. Writes ebusd reports as failed are retried once; the result
+    says what was confirmed, what failed and what got no answer, so nobody
+    is told "restored" about a value that never reached the heat pump."""
+    todo = {(e["circuit"], msg): e["value"] for msg, e in (snapshot or {}).items()
+            if e.get("value") is not None}
+    results: dict = {}
+    for attempt in (1, 2):
+        since = time.time()
+        sent = [k for k, v in todo.items() if mqtt_publish_write(k[0], k[1], v)]
+        results.update(wait_write_results(sent, since))
+        for k in todo:
+            if k not in sent:
+                results[k] = (False, "not sent (MQTT down or invalid value)")
+        todo = {k: v for k, v in todo.items() if results[k][0] is False}
+        if not todo:
+            break
+        if attempt == 1:
+            log.warning("Restore: %d write(s) failed, retrying once: %s", len(todo),
+                        ", ".join(f"{m} ({results[(c, m)][1]})" for c, m in todo))
+    return {
+        "total": len(results),
+        "applied": sorted(m for (c, m), (ok, _) in results.items() if ok is True),
+        "failed": sorted(m for (c, m), (ok, _) in results.items() if ok is False),
+        "unconfirmed": sorted(m for (c, m), (ok, _) in results.items() if ok is None),
+    }
+
+
+def _restore_summary(res: dict) -> str:
+    text = f"restored {len(res['applied'])} of {res['total']} value(s)"
+    if res["unconfirmed"]:
+        text += f", {len(res['unconfirmed'])} sent without confirmation"
+    if res["failed"]:
+        text += (f". Could NOT restore: {', '.join(res['failed'])} — check them on the heat "
+                 f"pump's own controller")
+    return text
 
 
 def _save_control_snapshot(snapshot: dict | None) -> None:
@@ -1178,14 +1259,13 @@ def control_recover_on_boot() -> None:
         return
     log.warning("Found a control session snapshot from before restart — "
                 "restoring %d value(s) and booting read-only", len(snapshot))
-    control_restore(snapshot)
+    res = control_restore(snapshot)
     _save_control_snapshot(None)
-    db_log_decision("control_revert", "Session interrupted by addon restart",
-                     {"restored_fields": len(snapshot)})
+    db_log_decision("control_revert", "Session interrupted by addon restart", res)
     _notify_ha(
         "Genia Air: control session interrupted",
-        f"The addon restarted while full control was active. Restored "
-        f"{len(snapshot)} previous value(s) and went back to read-only mode.",
+        f"The addon restarted while full control was active. Went back to "
+        f"read-only mode and {_restore_summary(res)}.",
     )
 
 
@@ -1231,15 +1311,12 @@ def _finish_revert(snapshot: dict | None, reason: str) -> None:
     """The I/O half of a revert (writes + logging + notify) — never called
     while holding CONTROL_LOCK, since these are network calls."""
     _save_control_snapshot(None)
-    if snapshot:
-        control_restore(snapshot)
-    restored = sum(1 for v in (snapshot or {}).values() if v["value"] is not None)
-    db_log_decision("control_revert", reason, {"restored_fields": restored})
-    log.warning("Full control REVERTED (%s) — restored %d value(s)", reason, restored)
+    res = control_restore(snapshot) if snapshot else {"total": 0, "applied": [], "failed": [], "unconfirmed": []}
+    db_log_decision("control_revert", reason, res)
+    log.warning("Full control REVERTED (%s) — %s", reason, _restore_summary(res))
     _notify_ha(
         "Genia Air: full control disabled",
-        f"{reason}. Went back to read-only mode and restored the "
-        f"pre-session values ({restored} field(s)).",
+        f"{reason}. Went back to read-only mode and {_restore_summary(res)}.",
     )
 
 
@@ -1710,14 +1787,21 @@ def api_write():
     old_value = _old_value_for(circuit, msg)
     user = (request.headers.get("X-Remote-User-Name")
             or request.headers.get("X-Remote-User-Id", "unknown"))
+    since = time.time()
     if not mqtt_publish_write(circuit, msg, value):
         db_log_decision("write_rejected", f"{circuit}/{msg}={value} rejected (invalid value or MQTT down)",
                         {"circuit": circuit, "msg": msg, "value": value, "source": "manual", "user": user})
         abort(503)
+    ok, detail = wait_write_results([(circuit, msg)], since)[(circuit, msg)]
+    if ok is False:
+        db_log_decision("write_failed", f"{circuit}/{msg}={value} failed on the bus: {detail}",
+                        {"circuit": circuit, "msg": msg, "value": value, "error": detail,
+                         "source": "manual", "user": user})
+        return jsonify({"ok": False, "error": detail, "circuit": circuit, "msg": msg}), 502
     db_log_decision("user_write", f"{circuit}/{msg}: {old_value} → {value} by user {user[:8]}",
                     {"circuit": circuit, "msg": msg, "old_value": old_value, "new_value": value,
-                     "source": "manual", "user": user})
-    return jsonify({"ok": True, "circuit": circuit, "msg": msg, "value": value})
+                     "source": "manual", "user": user, "confirmed": ok is True})
+    return jsonify({"ok": True, "confirmed": ok is True, "circuit": circuit, "msg": msg, "value": value})
 
 
 @app.route("/api/mode", methods=["POST"])
@@ -1734,13 +1818,20 @@ def api_mode():
         "cool": [("z1OpMode", "off"),  ("z1OpModeCooling", "auto")],
         "auto": [("z1OpMode", "auto"), ("z1OpModeCooling", "auto")],
     }[mode]
+    since = time.time()
     if not all(mqtt_publish_write("ctls2", msg, val) for msg, val in pairs):
         db_log_decision("write_rejected", f"HVAC mode → {mode} rejected (MQTT down)",
                         {"mode": mode, "source": "manual"})
         abort(503)
+    res = wait_write_results([("ctls2", msg) for msg, _ in pairs], since)
+    failed = {k[1]: d for k, (ok, d) in res.items() if ok is False}
+    if failed:
+        db_log_decision("write_failed", f"HVAC mode → {mode} failed on the bus: {failed}",
+                        {"mode": mode, "errors": failed, "source": "manual"})
+        return jsonify({"ok": False, "error": "; ".join(f"{m}: {d}" for m, d in failed.items())}), 502
     db_log_decision("user_mode", f"HVAC mode: {old_mode} → {mode}",
                     {"old_mode": old_mode, "new_mode": mode, "source": "manual"})
-    return jsonify({"ok": True, "mode": mode})
+    return jsonify({"ok": True, "confirmed": all(ok is True for ok, _ in res.values()), "mode": mode})
 
 
 @app.route("/api/setpoint", methods=["POST"])
@@ -1754,13 +1845,20 @@ def api_setpoint():
     hvac = compute_hvac_mode()
     msg = "z1CoolingTemp" if hvac == "cool" else "z1ManualTemp"
     old_value = _old_value_for("ctls2", msg)
+    since = time.time()
     if not mqtt_publish_write("ctls2", msg, target):
         db_log_decision("write_rejected", f"{msg} = {target}°C rejected (MQTT down)",
                         {"msg": msg, "value": target, "source": "manual"})
         abort(503)
+    ok, detail = wait_write_results([("ctls2", msg)], since)[("ctls2", msg)]
+    if ok is False:
+        db_log_decision("write_failed", f"{msg} = {target}°C failed on the bus: {detail}",
+                        {"msg": msg, "value": target, "error": detail, "source": "manual"})
+        return jsonify({"ok": False, "error": detail, "msg": msg}), 502
     db_log_decision("user_setpoint", f"{msg}: {old_value} → {target}°C",
-                    {"msg": msg, "old_value": old_value, "new_value": target, "source": "manual"})
-    return jsonify({"ok": True, "msg": msg, "value": target})
+                    {"msg": msg, "old_value": old_value, "new_value": target, "source": "manual",
+                     "confirmed": ok is True})
+    return jsonify({"ok": True, "confirmed": ok is True, "msg": msg, "value": target})
 
 
 @app.route("/api/optimizer", methods=["POST"])
@@ -2105,7 +2203,11 @@ function toast(msg, kind="info"){
 async function api(path, opts={}){
   opts.headers=Object.assign({"Content-Type":"application/json"}, opts.headers||{});
   const r=await fetch(BASE+path, opts);
-  if(!r.ok) throw new Error("HTTP "+r.status);
+  if(!r.ok){
+    let msg = "HTTP "+r.status;
+    try{ const j = await r.json(); if(j && j.error) msg = j.error; }catch(_){}
+    throw new Error(msg);
+  }
   return r.json();
 }
 
@@ -2241,8 +2343,9 @@ async function buildSliders(){
       const out = div.querySelector(".range-val");
       inp.oninput = ()=> out.textContent = inp.value+"°C";
       inp.onchange = async ()=> {
-        try{ await api("/api/write", {method:"POST", body:JSON.stringify({circuit:"ctls2", msg, value:parseFloat(inp.value)})});
-             toast(name+" → "+inp.value+"°C","ok");
+        try{ const r = await api("/api/write", {method:"POST", body:JSON.stringify({circuit:"ctls2", msg, value:parseFloat(inp.value)})});
+             if(r.confirmed) toast(name+" → "+inp.value+"°C (confirmed)","ok");
+             else toast(name+" → "+inp.value+"°C sent, not confirmed by the bus","info");
         } catch(e){ toast("Error: "+e.message,"err"); }
       };
     });

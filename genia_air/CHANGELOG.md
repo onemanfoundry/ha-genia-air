@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.8.0 — 2026-10-14
+
+- **Writes are confirmed, not assumed.** Publishing a write to MQTT only
+  hands it to ebusd; whether the controller accepted it shows up on
+  ebusd's log (`[mqtt notice] write …` or `[mqtt error] write …: ERR …`).
+  The add-on now waits up to 8 s for that verdict:
+  - a setpoint / mode / slider change that fails on the bus returns an
+    error and the UI shows it, instead of a green "→ 21.5°C" toast;
+  - an unconfirmed write is reported as "sent, not confirmed by the bus";
+  - **reverting a control session retries failed writes once and reports
+    what really happened** ("restored 8 of 10 value(s). Could NOT restore:
+    z1ManualTemp — check them on the heat pump's own controller"), in the
+    decision log and in the Home Assistant notification. It used to say
+    "restored 10 value(s)" whatever the bus answered.
+- Found while attempting the real-hardware round-trip on 2026-10-14: over
+  a lossy WiFi adapter link both the write and the restore failed on the
+  bus while the UI reported success. The heat pump never changed, but the
+  user could not have known.
+
 ## 0.7.5 — 2026-10-14
 
 - **Charts show gaps instead of inventing lines.** When a series has no
