@@ -13,6 +13,7 @@ from __future__ import annotations
 import importlib.util
 import os
 import pathlib
+import time
 
 import pytest
 
@@ -42,7 +43,7 @@ def _clean_state(mod):
 
 def _set(mod, circuit, msg, fields):
     with mod.STATE_LOCK:
-        mod.STATE[(circuit, msg)] = {"fields": fields, "raw": "", "ts": 0.0}
+        mod.STATE[(circuit, msg)] = {"fields": fields, "raw": "", "ts": time.time()}
 
 
 # ── payload decoding ────────────────────────────────────────────────────────
@@ -225,3 +226,36 @@ def test_ebusd_latency_only_passed_when_set(mod):
         assert argv[argv.index("--latency") + 1] == "50"
     finally:
         mod.CONF["ebusd_latency_ms"] = original
+
+
+class _Msg:
+    def __init__(self, topic, payload, retain):
+        self.topic, self.payload, self.retain = topic, payload.encode(), retain
+
+
+def test_retained_mqtt_value_is_not_fresh(mod):
+    """A value replayed by the broker at start-up has unknown age: it must not
+    look live (it used to show days-old power readings as current)."""
+    mod._on_mqtt_message(None, None, _Msg("ebusd/hmu/CurrentConsumedPower", '{"0": {"value": 4.4}}', True))
+    assert mod.STATE[("hmu", "CurrentConsumedPower")]["ts"] == 0.0
+    assert mod._field("hmu", "CurrentConsumedPower", "0") is None
+
+
+def test_retained_replay_never_overwrites_live_value(mod):
+    mod._on_mqtt_message(None, None, _Msg("ebusd/hmu/CurrentConsumedPower", '{"0": {"value": 1.2}}', False))
+    mod._on_mqtt_message(None, None, _Msg("ebusd/hmu/CurrentConsumedPower", '{"0": {"value": 4.4}}', True))
+    assert mod._field("hmu", "CurrentConsumedPower", "0") == 1.2
+
+
+def test_live_telemetry_goes_unknown_when_not_refreshed(mod):
+    _set(mod, "hmu", "CurrentYieldPower", {"0": 10.6})
+    assert mod._field("hmu", "CurrentYieldPower", "0") == 10.6
+    mod.STATE[("hmu", "CurrentYieldPower")]["ts"] -= mod.CONF["stale_data_min"] * 60 + 1
+    assert mod._field("hmu", "CurrentYieldPower", "0") is None
+
+
+def test_settings_do_not_expire(mod):
+    """Configuration values (read once, rarely change) stay usable when old."""
+    _set(mod, "ctls2", "Hc1MaxFlowTempDesired", {"tempv": 34.5})
+    mod.STATE[("ctls2", "Hc1MaxFlowTempDesired")]["ts"] = 1.0
+    assert mod._field("ctls2", "Hc1MaxFlowTempDesired", "tempv") == 34.5

@@ -35,7 +35,7 @@ from flask import Flask, abort, jsonify, request
 # Config & logging
 # ───────────────────────────────────────────────────────────────────────────
 
-VERSION = "0.7.2"
+VERSION = "0.7.3"
 
 
 def _load_options() -> dict:
@@ -786,8 +786,17 @@ def _on_mqtt_message(_client, _userdata, msg):
     if "/" in message or message in ("set", "get", "errors", "ebusd"):
         return
     fields, raw = _decode_payload(msg.payload)
+    key = (circuit, message)
     with STATE_LOCK:
-        STATE[(circuit, message)] = {"fields": fields, "raw": raw, "ts": time.time()}
+        if msg.retain:
+            # ebusd publishes with --mqttretain, so on every (re)connect the
+            # broker replays the last value of every message — possibly days
+            # old. Keep it for display, but with an unknown age (ts=0) so it
+            # never counts as fresh, and never let it overwrite a live value.
+            if key not in STATE:
+                STATE[key] = {"fields": fields, "raw": raw, "ts": 0.0}
+            return
+        STATE[key] = {"fields": fields, "raw": raw, "ts": time.time()}
 
 
 def mqtt_publish_write(circuit: str, msg: str, value) -> bool:
@@ -843,10 +852,21 @@ def mqtt_start() -> None:
 # Helpers — derived values from STATE
 # ───────────────────────────────────────────────────────────────────────────
 
+# Telemetry that only means something while it keeps refreshing: when the
+# heat pump stops broadcasting it (or active reads keep failing), the last
+# value is no longer true and must read as unknown, not be repeated forever.
+LIVE_MESSAGES = {
+    ("hmu", "Status01"), ("hmu", "CurrentConsumedPower"), ("hmu", "CurrentYieldPower"),
+    ("hmu", "CurrentCompressorUtil"), ("hmu", "WaterThroughput"),
+}
+
+
 def _field(circuit: str, msg: str, key: str, cast=float):
     with STATE_LOCK:
         entry = STATE.get((circuit, msg))
     if not entry:
+        return None
+    if (circuit, msg) in LIVE_MESSAGES and time.time() - entry["ts"] > CONF["stale_data_min"] * 60:
         return None
     val = entry["fields"].get(key)
     if val is None:
@@ -1568,8 +1588,9 @@ def api_messages():
             out.append({
                 "circuit": circuit, "msg": msg,
                 "fields": entry["fields"],
-                "last_seen": entry["ts"],
-                "age_seconds": int(time.time() - entry["ts"]),
+                "last_seen": entry["ts"] or None,
+                # None = replayed from the broker at start-up, age unknown
+                "age_seconds": int(time.time() - entry["ts"]) if entry["ts"] else None,
             })
     return jsonify(out)
 
@@ -2390,10 +2411,10 @@ async function loadDiag(){
     const tb = $("diag-tbody"); tb.innerHTML="";
     if(!msgs.length){ tb.innerHTML='<tr><td colspan="4" class="empty">No ebusd messages yet.</td></tr>'; return; }
     msgs.forEach(m=>{
-      const ageClass = m.age_seconds<120?"diag-fresh":m.age_seconds<600?"diag-old":"diag-stale";
+      const ageClass = m.age_seconds==null?"diag-stale":m.age_seconds<120?"diag-fresh":m.age_seconds<600?"diag-old":"diag-stale";
       const fields = Object.entries(m.fields).map(([k,v])=>`<span class="badge bg-m">${k}=${v}</span>`).join(" ");
       const tr = document.createElement("tr");
-      tr.innerHTML = `<td>${m.circuit}</td><td>${m.msg}</td><td>${fields}</td><td class="${ageClass}">${fmtAge(m.age_seconds)}</td>`;
+      tr.innerHTML = `<td>${m.circuit}</td><td>${m.msg}</td><td>${fields}</td><td class="${ageClass}" title="${m.age_seconds==null?"Last value replayed by the MQTT broker at start-up; not refreshed since":""}">${m.age_seconds==null?"retained":fmtAge(m.age_seconds)}</td>`;
       tb.appendChild(tr);
     });
   } catch(e){ toast("Diagnostics load failed: "+e.message,"err"); }

@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.7.3 — 2026-10-14
+
+- **Stale values no longer look live.** ebusd publishes with
+  `--mqttretain`, so on every add-on start the broker replayed the last
+  value of every message and the add-on stamped it as just received. A
+  power reading from days earlier (4.4 kW electric with the compressor at
+  0 %) showed as current, went into the charts and reset the frozen-telemetry
+  check. Retained replays are now kept with an unknown age, never overwrite a
+  live value, and show as `retained` in Diagnostics.
+- Live telemetry (supply/return, electric/thermal power, modulation, flow)
+  now reads as unknown once it has not refreshed for `stale_data_minutes`,
+  instead of repeating the last value — e.g. when active reads keep failing
+  on a bad adapter link. Charts get a gap instead of a flat line that never
+  happened. Settings (setpoints, curve, limits) are unaffected.
+
 ## 0.7.2 — 2026-10-14
 
 - New option `ebusd_latency_ms` (default `0`, unchanged behaviour), passed
