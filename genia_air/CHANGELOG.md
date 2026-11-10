@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.8.1 — 2026-11-10
+
+- **`zone_count` now actually filters ebusd's polling.** It was read from
+  config but never used: ebusd auto-polled zone 2/3 registers on every
+  single-zone install regardless of this setting, since the bundled
+  `ctls2` definitions are generic for up to 3 zones. Each failed poll to a
+  non-existent zone burns bus arbitration time competing with real zone-1
+  traffic — measured at ~600 `read timeout`/`SYN received` errors over
+  4.5 h on one single-zone install, enough on its own to make
+  `ebus.connected` flicker. Setting `zone_count` to the real number of
+  zones now downgrades polling for the rest to on-demand — see
+  [TROUBLESHOOTING](../TROUBLESHOOTING.md#ebusconnected-flickers-truefalse-every-10-20s-but-real-telemetry-keeps-flowing).
+
 ## 0.8.0 — 2026-10-14
 
 - **Writes are confirmed, not assumed.** Publishing a write to MQTT only

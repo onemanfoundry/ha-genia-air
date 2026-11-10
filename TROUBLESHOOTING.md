@@ -135,6 +135,34 @@ start-up) shows `max symbol latency` — the same story.
    restart it. This tells ebusd to wait longer for answers. It does not make a
    bad link good, but it gets the bus scan and most reads through.
 
+## `ebus.connected` flickers True/false every 10-20s, but real telemetry keeps flowing
+
+If the bus is otherwise healthy — good WiFi signal, no congestion — and the
+log shows a steady trickle of `read timeout` / `SYN received` for `ctls2 z2*`
+or `ctls2 z3*` registers while `z1*` traffic looks fine, the cause is **not**
+the network link: `zone_count` in the add-on configuration doesn't match how
+many zones your installation actually has.
+
+ebusd auto-polls every zone register up to `zone_count` on a recurring cycle.
+Vaillant's own `ctls2` definitions are generic for up to 3 zones; if
+`zone_count` is set higher than what's physically wired, ebusd polls a zone
+that will never answer, forever. Each failed poll burns real bus arbitration
+time competing with legitimate zone-1 traffic — on one single-zone
+installation this produced ~600 failed polls every 4-5 hours, enough to make
+`ebus.connected` flap even though the bus itself was fine.
+
+**Fix:** set `zone_count` in the add-on configuration to the real number of
+zones your installation has (most residential installs are `1`). The add-on
+filters the polling config to match — zones above `zone_count` are no longer
+auto-polled. If you don't know the number offhand, check the heat pump's own
+installation paperwork or its physical panel (Settings → Heating circuits).
+
+The add-on doesn't yet auto-detect this — it trusts whatever `zone_count` is
+set to, which is easy to leave at the wrong value without noticing, since
+nothing in the UI flags the mismatch. Auto-detecting it (e.g. probing each
+zone's registers once at start-up and dropping any that don't answer from the
+poll set) is a reasonable future improvement; it hasn't been built yet.
+
 ## Prevention: turn off `auto_update` for the add-on
 
 Supervisor's automatic add-on update is what kills ebusd mid-connection in the

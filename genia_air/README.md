@@ -126,7 +126,7 @@ configure `ebus_device` when you're ready to connect a real unit.
 |---|---|---|
 | `ebus_device` | `ens:192.168.1.100:9999` | eBUS adapter URL (`ens:`, `enh:`, `/dev/tty*`) |
 | `topic_prefix` | `ebusd` | MQTT topic prefix used by ebusd |
-| `zone_count` | `1` | v0.2 controls zone 1 only |
+| `zone_count` | `1` | How many heating zones your installation physically has (1-3). Set it to the real number: ebusd auto-polls every zone register up to this count, and polling a zone that doesn't exist floods the bus with failed reads/timeouts (see [TROUBLESHOOTING](../TROUBLESHOOTING.md)). v0.2 only controls zone 1 regardless of this setting. |
 | `optimize_flow_temp` | `true` | Master switch for the optimizer |
 | `target_delta_t` | `5.0` K | Heating-side ΔT target used for anomaly alerts |
 | `min_flow_temp_safe` | `14.0` °C | Anti-condensation floor in cooling mode |
