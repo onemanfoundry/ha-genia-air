@@ -228,6 +228,61 @@ def test_ebusd_latency_only_passed_when_set(mod):
         mod.CONF["ebusd_latency_ms"] = original
 
 
+def test_ebusd_configpath_downgrades_polls_for_absent_zones(mod, tmp_path):
+    """zone_count=1 (our install): z2/z3 auto-polls get downgraded to on-demand.
+
+    Regression for project_ebus_zone_poll_bug_20261110: ebusd was polling
+    zones 2/3 that don't physically exist, every few seconds, forever —
+    597 read-timeout/SYN-received errors in 4.5h on this 1-zone unit.
+    """
+    static_dir = tmp_path / "static"
+    static_dir.mkdir()
+    (static_dir / "15.ctls2.csv").write_text(
+        "r5,ctls2,z1ManualTemp,...\n"
+        "r5,ctls2,z2ManualTemp,...\n"
+        "r5,ctls2,z3ManualTemp,...\n"
+        "w,ctls2,z2ManualTemp,...\n"  # writes are untouched either way
+    )
+    (static_dir / "broadcast.csv").write_text("r5,broadcast,OutsideTemp,...\n")
+    (static_dir / "LICENSE").write_text("not a csv, must be ignored\n")
+
+    original_static = mod.EBUSD_CONFIG_PATH
+    original_generated = mod.EBUSD_GENERATED_CONFIG_PATH
+    original_zone_count = mod.CONF["zone_count"]
+    try:
+        mod.EBUSD_CONFIG_PATH = str(static_dir)
+        mod.EBUSD_GENERATED_CONFIG_PATH = str(tmp_path / "generated")
+        mod.CONF["zone_count"] = 1
+
+        result_path = mod._ebusd_configpath()
+
+        assert result_path == mod.EBUSD_GENERATED_CONFIG_PATH
+        generated = pathlib.Path(result_path) / "15.ctls2.csv"
+        lines = generated.read_text().splitlines()
+        assert "r5,ctls2,z1ManualTemp,..." in lines  # zone 1 still auto-polled
+        assert "r,ctls2,z2ManualTemp,..." in lines    # zone 2 downgraded
+        assert "r,ctls2,z3ManualTemp,..." in lines    # zone 3 downgraded
+        assert "w,ctls2,z2ManualTemp,..." in lines    # writes untouched
+        assert not (pathlib.Path(result_path) / "LICENSE").exists()
+    finally:
+        mod.EBUSD_CONFIG_PATH = original_static
+        mod.EBUSD_GENERATED_CONFIG_PATH = original_generated
+        mod.CONF["zone_count"] = original_zone_count
+
+
+def test_ebusd_configpath_unfiltered_for_multi_zone_installs(mod, tmp_path):
+    """zone_count>=3: skip filtering entirely, return the static path as-is."""
+    original_static = mod.EBUSD_CONFIG_PATH
+    original_zone_count = mod.CONF["zone_count"]
+    try:
+        mod.EBUSD_CONFIG_PATH = str(tmp_path)  # never read when skipped
+        mod.CONF["zone_count"] = 3
+        assert mod._ebusd_configpath() == str(tmp_path)
+    finally:
+        mod.EBUSD_CONFIG_PATH = original_static
+        mod.CONF["zone_count"] = original_zone_count
+
+
 class _Msg:
     def __init__(self, topic, payload, retain):
         self.topic, self.payload, self.retain = topic, payload.encode(), retain

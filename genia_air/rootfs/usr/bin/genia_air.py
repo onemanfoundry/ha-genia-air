@@ -403,9 +403,54 @@ def db_log_decision(kind: str, reason: str, detail: dict) -> None:
 
 EBUSD_BIN = "/usr/bin/ebusd"
 EBUSD_CONFIG_PATH = "/usr/share/ebusd/vaillant"
+EBUSD_GENERATED_CONFIG_PATH = "/data/ebusd-config"
 EBUSD_PROCESS: subprocess.Popen | None = None
 EBUSD_LAST_RESTART = 0.0
 EBUSD_RESTART_COUNT = 0
+
+# 15.ctls2.csv ships generic zone definitions for up to 3 zones, all
+# marked for auto-poll (`r5`). Most installs (incl. ours) only wire up
+# zone 1 — ebusd then polls the non-existent zones forever, every poll
+# fails (nothing answers), and that burns real eBUS arbitration time
+# competing against zone-1 traffic. See project_ebus_zone_poll_bug_20261110
+# in memory: 597 read-timeout/SYN-received errors in 4.5h on a 1-zone unit.
+_ZONE_POLL_RE = re.compile(r"^r5,ctls2,z(\d)", re.MULTILINE)
+
+
+def _ebusd_configpath() -> str:
+    """Return the --configpath to hand ebusd.
+
+    `zone_count` (default 1) says how many zones physically exist. When
+    it's below the 3 zones the bundled CSV defines, copy the config into
+    a writable dir and downgrade `r5` -> `r` for the zones beyond it:
+    still a valid, on-demand-queryable definition, just no longer
+    auto-polled. Zone-1-only installs lose 40 of 173 auto-polled rows.
+    """
+    zone_count = CONF["zone_count"]
+    if zone_count >= 3:
+        return EBUSD_CONFIG_PATH
+    try:
+        dest = Path(EBUSD_GENERATED_CONFIG_PATH)
+        dest.mkdir(parents=True, exist_ok=True)
+        for src in Path(EBUSD_CONFIG_PATH).iterdir():
+            if not src.is_file():
+                continue
+            if src.suffix.lower() != ".csv":
+                continue
+            text = src.read_text()
+            text = _ZONE_POLL_RE.sub(
+                lambda m: m.group(0) if int(m.group(1)) <= zone_count
+                else f"r,ctls2,z{m.group(1)}",
+                text,
+            )
+            (dest / src.name).write_text(text)
+        return str(dest)
+    except Exception as exc:
+        log.error(
+            "Could not generate zone-filtered ebusd config (zone_count=%s): %s "
+            "— falling back to the unfiltered static config", zone_count, exc,
+        )
+        return EBUSD_CONFIG_PATH
 
 
 def _ebusd_argv() -> list[str]:
@@ -414,7 +459,7 @@ def _ebusd_argv() -> list[str]:
         EBUSD_BIN,
         "--foreground",
         "--device", CONF["ebus_device"],
-        "--configpath", EBUSD_CONFIG_PATH,
+        "--configpath", _ebusd_configpath(),
         "--scanconfig",
         "--accesslevel", "*",
         "--mqtthost", CONF["mqtt_host"],
