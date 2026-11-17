@@ -29,9 +29,27 @@ Full user docs: [`genia_air/README.md`](genia_air/README.md).
 
 [![Watch the install walkthrough](https://img.youtube.com/vi/Nrkoq6wU3c4/maxresdefault.jpg)](https://www.youtube.com/watch?v=Nrkoq6wU3c4)
 
-### Dashboard
+## Overview
 
-![Genia Air overview dashboard](docs/images/overview.png)
+**Overview** — live KPIs, zone-1 thermostat, optimizer status:
+
+![Overview tab](docs/images/overview.png)
+
+**Charts** — temperatures, ΔT, electric/thermal power and COP over time:
+
+![Charts tab](docs/images/charts.png)
+
+**Optimizer** — active control toggle and the decision log:
+
+![Optimizer tab](docs/images/optimizer.png)
+
+**Controls** — read-only by default; gated, time-boxed full control when enabled:
+
+![Controls tab](docs/images/controls.png)
+
+**Diagnostics** — hardware compatibility check, ebusd status, raw bus messages:
+
+![Diagnostics tab](docs/images/diagnostics.png)
 
 > Requires an eBUS adapter wired to the heat pump and reachable over the
 > network (e.g. an [eBUS Adapter Shield](https://adapter.ebusd.eu/) on TCP
