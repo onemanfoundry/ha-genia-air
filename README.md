@@ -25,6 +25,14 @@ https://github.com/onemanfoundry/ha-genia-air
 Then install **Vaillant Genia Air** and set `ebus_device` to your adapter.
 Full user docs: [`genia_air/README.md`](genia_air/README.md).
 
+### Install walkthrough (video)
+
+[![Watch the install walkthrough](https://img.youtube.com/vi/Nrkoq6wU3c4/maxresdefault.jpg)](https://www.youtube.com/watch?v=Nrkoq6wU3c4)
+
+### Dashboard
+
+![Genia Air overview dashboard](docs/images/overview.png)
+
 > Requires an eBUS adapter wired to the heat pump and reachable over the
 > network (e.g. an [eBUS Adapter Shield](https://adapter.ebusd.eu/) on TCP
 > `:9999`) or USB, plus an MQTT broker (the Mosquitto add-on is the easiest).
